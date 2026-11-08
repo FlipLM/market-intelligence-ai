@@ -27,6 +27,7 @@ import {
 } from "@/types/recentCompanies";
 import WhatsAppPitchModal from "./WhatsAppPitchModal";
 import RecentCompanyDetailsModal from "./RecentCompanyDetailsModal";
+import CnpjLookupModal from "./CnpjLookupModal";
 
 interface RecentCompaniesDashboardProps {
   initialCompanies: RecentCompanyLead[];
@@ -37,6 +38,9 @@ export default function RecentCompaniesDashboard({
   initialCompanies,
   stats,
 }: RecentCompaniesDashboardProps) {
+  // Lista dinâmica de leads (permite adicionar novos CNPJs consultados em tempo real)
+  const [companiesList, setCompaniesList] = useState<RecentCompanyLead[]>(initialCompanies);
+
   // Filtros de estado
   const [selectedDays, setSelectedDays] = useState<number | null>(90); // default: 90 dias (sweet spot)
   const [selectedSector, setSelectedSector] = useState<CompanySector>("todos");
@@ -52,6 +56,7 @@ export default function RecentCompaniesDashboard({
   // Modais
   const [activeWhatsAppLead, setActiveWhatsAppLead] = useState<RecentCompanyLead | null>(null);
   const [activeDetailsLead, setActiveDetailsLead] = useState<RecentCompanyLead | null>(null);
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
   // Opções de Janela Temporal
   const timeWindows = [
@@ -89,9 +94,21 @@ export default function RecentCompaniesDashboard({
     { id: "Vicente Pires", label: "Vicente Pires" },
   ];
 
+  // Adicionar lead pesquisado via API aberta
+  const handleAddLead = (newLead: RecentCompanyLead) => {
+    setCompaniesList((prev) => {
+      if (prev.some((c) => c.cnpj === newLead.cnpj)) {
+        return prev;
+      }
+      return [newLead, ...prev];
+    });
+    setExportFeedback(`✅ Empresa ${newLead.nomeFantasia} adicionada ao seu radar com sucesso!`);
+    setTimeout(() => setExportFeedback(null), 5000);
+  };
+
   // Filtragem dinâmica
   const filteredCompanies = useMemo(() => {
-    return initialCompanies.filter((c) => {
+    return companiesList.filter((c) => {
       // Filtro de tempo
       if (selectedDays !== null && c.diasCriacao > selectedDays) {
         return false;
@@ -136,7 +153,7 @@ export default function RecentCompaniesDashboard({
       }
       return 0;
     });
-  }, [initialCompanies, selectedDays, selectedSector, selectedRegion, search, sortBy]);
+  }, [companiesList, selectedDays, selectedSector, selectedRegion, search, sortBy]);
 
   // Manipulação de seleção
   const handleToggleSelect = (id: string) => {
@@ -216,6 +233,14 @@ export default function RecentCompaniesDashboard({
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
+            onClick={() => setIsLookupModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 transition cursor-pointer shadow-xs"
+          >
+            <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span>Consultar CNPJ via API Aberta</span>
+          </button>
+
+          <button
             onClick={handleExportToProspector}
             disabled={exporting || filteredCompanies.length === 0}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm cursor-pointer disabled:opacity-50"
@@ -240,6 +265,22 @@ export default function RecentCompaniesDashboard({
             <span>Baixar Planilha (CSV)</span>
           </button>
         </div>
+      </div>
+
+      {/* Banner de Conexão com API Pública da Receita Federal */}
+      <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-emerald-500/10 border border-blue-500/20 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-700 dark:text-slate-300">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span>
+            <strong className="text-slate-900 dark:text-white">Conexão Oficial com API de CNPJs Abertos:</strong> consulte qualquer empresa do Brasil em tempo real (dados cadastrais, data exata de abertura, QSA/sócios, CNAE e geração automática de pitch).
+          </span>
+        </div>
+        <button
+          onClick={() => setIsLookupModalOpen(true)}
+          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0 text-left sm:text-right cursor-pointer"
+        >
+          Consultar CNPJ agora &rarr;
+        </button>
       </div>
 
       {/* Feedback de Ações */}
@@ -587,7 +628,17 @@ export default function RecentCompaniesDashboard({
         </div>
       )}
 
-      {/* Modais de Script WhatsApp e Detalhes */}
+      {/* Modais de Script WhatsApp, Detalhes e Consulta de CNPJ em Tempo Real */}
+      <CnpjLookupModal
+        isOpen={isLookupModalOpen}
+        onClose={() => setIsLookupModalOpen(false)}
+        onAddLead={handleAddLead}
+        onOpenWhatsApp={(lead) => {
+          setIsLookupModalOpen(false);
+          setActiveWhatsAppLead(lead);
+        }}
+      />
+
       <WhatsAppPitchModal
         company={activeWhatsAppLead}
         onClose={() => setActiveWhatsAppLead(null)}
@@ -604,3 +655,4 @@ export default function RecentCompaniesDashboard({
     </div>
   );
 }
+

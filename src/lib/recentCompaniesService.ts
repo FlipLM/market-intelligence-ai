@@ -141,3 +141,4 @@ export function exportCompaniesToCsv(companies: RecentCompanyLead[]): string {
 
   return [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
 }
+

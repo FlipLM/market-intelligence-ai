@@ -87,3 +87,4 @@ export interface RecentCompaniesStats {
   taxaMediaSemSistema: number;
   capitalSocialMedio: number;
 }
+

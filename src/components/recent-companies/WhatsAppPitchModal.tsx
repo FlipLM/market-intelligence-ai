@@ -133,3 +133,4 @@ export default function WhatsAppPitchModal({ company, onClose }: WhatsAppPitchMo
     </div>
   );
 }
+
