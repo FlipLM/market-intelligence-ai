@@ -53,6 +53,13 @@ export default function RootLayout({
                     Painel Geral
                   </Link>
                   <Link
+                    href="/empresas-recentes"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 transition flex items-center gap-1.5"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Radar de Novas Empresas (0-1 ano)
+                  </Link>
+                  <Link
                     href="/pesquisa"
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition"
                   >

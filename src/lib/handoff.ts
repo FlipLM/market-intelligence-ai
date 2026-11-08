@@ -68,3 +68,60 @@ export function exportHandoffToProspector(
   }
 }
 
+export function exportRecentCompaniesToProspector(
+  companies: any[],
+  prospectorPath = 'G:\\Prospector'
+): { success: boolean; message: string; destinationFile?: string } {
+  try {
+    const destDir = path.join(prospectorPath, 'scratch');
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filePath = path.join(destDir, `leads_recentes_${timestamp}.json`);
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      totalLeads: companies.length,
+      source: 'Market Intelligence AI — Radar de Empresas Recém-Abertas (0-365 dias)',
+      region: 'Distrito Federal (Brasília e Regiões Administrativas)',
+      leads: companies.map(c => ({
+        cnpj: c.cnpj,
+        nomeFantasia: c.nomeFantasia,
+        razaoSocial: c.razaoSocial,
+        dataAbertura: c.dataAbertura,
+        diasCriacao: c.diasCriacao,
+        faixaTempo: c.faixaTempo,
+        setor: c.setorRotulo,
+        cnae: c.cnaePrincipal,
+        cnaeDescricao: c.cnaeDescricao,
+        bairro: c.bairroRegiao,
+        endereco: c.enderecoCompleto,
+        porte: c.porte,
+        capitalSocial: c.capitalSocial,
+        socio: c.socioPrincipal?.nome || '',
+        whatsapp: c.contato?.telefoneWhatsapp || '',
+        whatsappFormatado: c.contato?.telefoneFormatado || '',
+        email: c.contato?.email || '',
+        scoreSemSistema: c.diagnosticoTecnologico?.scoreSemSistema || 0,
+        estagioOperacional: c.diagnosticoTecnologico?.estagioOperacional || '',
+        dorOperacional: c.diagnosticoTecnologico?.gargaloUrgente || '',
+        solucaoSugerida: c.diagnosticoTecnologico?.solucaoImediataSugerida || '',
+        pitchWhatsApp: c.pitchAbordagemSugerido?.mensagemWhatsapp || '',
+      }))
+    };
+
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+    return {
+      success: true,
+      message: `${companies.length} empresas recém-abertas exportadas com sucesso para o robô do Prospector em: ${filePath}`,
+      destinationFile: filePath
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Erro ao exportar empresas recentes para o Prospector: ${err.message}`
+    };
+  }
+}
+

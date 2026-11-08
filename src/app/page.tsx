@@ -14,7 +14,8 @@ import {
   Search, 
   MapPin, 
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,13 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <Link
+            href="/empresas-recentes"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition shadow-sm"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Radar de Novas Empresas (0-1 ano)</span>
+          </Link>
           <AutoDiscoverDfButton />
           <Link
             href="/pesquisa"
