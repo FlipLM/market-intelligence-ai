@@ -296,3 +296,4 @@ export async function fetchCnpjFromOpenApi(cnpj: string): Promise<RecentCompanyL
 
   return null;
 }
+

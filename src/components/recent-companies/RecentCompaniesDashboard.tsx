@@ -57,6 +57,66 @@ export default function RecentCompaniesDashboard({
   const [activeWhatsAppLead, setActiveWhatsAppLead] = useState<RecentCompanyLead | null>(null);
   const [activeDetailsLead, setActiveDetailsLead] = useState<RecentCompanyLead | null>(null);
   const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
+  const [isFetchingNew, setIsFetchingNew] = useState(false);
+
+  // Estatísticas dinâmicas calculadas sobre o volume atual da base
+  const dynamicStats = useMemo(() => {
+    const total = companiesList.length;
+    const c7 = companiesList.filter((c) => c.diasCriacao <= 7).length;
+    const c30 = companiesList.filter((c) => c.diasCriacao <= 30).length;
+    const c90 = companiesList.filter((c) => c.diasCriacao <= 90).length;
+    const sumScore = companiesList.reduce(
+      (acc, c) => acc + c.diagnosticoTecnologico.scoreSemSistema,
+      0
+    );
+    const avgScore = total > 0 ? Math.round(sumScore / total) : stats.taxaMediaSemSistema;
+    return {
+      total,
+      criadasUltimos7Dias: c7,
+      criadasUltimos30Dias: c30,
+      criadasUltimos90Dias: c90,
+      taxaMediaSemSistema: avgScore,
+    };
+  }, [companiesList, stats.taxaMediaSemSistema]);
+
+  // Buscar 100 empresas mais novas desconsiderando as já existentes na base
+  const handleFetchNewestCompanies = async () => {
+    try {
+      setIsFetchingNew(true);
+      setExportFeedback(null);
+
+      const existingCnpjs = companiesList.map((c) => c.cnpj.replace(/\D/g, ""));
+      const res = await fetch("/api/recent-companies/fetch-new", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existingCnpjs, limit: 100 }),
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const newLeads: RecentCompanyLead[] = data.data;
+        if (newLeads.length === 0) {
+          setExportFeedback("ℹ️ Todas as empresas mais recentes disponíveis já estão adicionadas na sua base.");
+        } else {
+          setCompaniesList((prev) => {
+            const prevCnpjs = new Set(prev.map((c) => c.cnpj.replace(/\D/g, "")));
+            const toAdd = newLeads.filter((l) => !prevCnpjs.has(l.cnpj.replace(/\D/g, "")));
+            return [...toAdd, ...prev];
+          });
+          setExportFeedback(
+            `🎯 Busca concluída! ${newLeads.length} empresas mais recentes foram adicionadas ao seu radar (${data.skippedCount || 0} já existentes foram desconsideradas).`
+          );
+        }
+        setTimeout(() => setExportFeedback(null), 8000);
+      } else {
+        setExportFeedback(`❌ Erro ao buscar novas empresas: ${data.message || data.error}`);
+      }
+    } catch (err: any) {
+      setExportFeedback(`❌ Erro de conexão: ${err.message}`);
+    } finally {
+      setIsFetchingNew(false);
+    }
+  };
 
   // Opções de Janela Temporal
   const timeWindows = [
@@ -233,6 +293,24 @@ export default function RecentCompaniesDashboard({
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
+            onClick={handleFetchNewestCompanies}
+            disabled={isFetchingNew}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 transition shadow-sm cursor-pointer disabled:opacity-60"
+            title="Busca as 100 empresas mais novas registradas na Receita, desconsiderando as que já estão na sua base"
+          >
+            {isFetchingNew ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-emerald-100" />
+            )}
+            <span>
+              {isFetchingNew
+                ? "Buscando 100 Mais Novas..."
+                : "Buscar Novas Empresas (Top 100)"}
+            </span>
+          </button>
+
+          <button
             onClick={() => setIsLookupModalOpen(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 transition cursor-pointer shadow-xs"
           >
@@ -300,7 +378,7 @@ export default function RecentCompaniesDashboard({
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {stats.criadasUltimos7Dias}
+            {dynamicStats.criadasUltimos7Dias}
           </div>
           <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
             Contato antes de qualquer concorrente
@@ -315,7 +393,7 @@ export default function RecentCompaniesDashboard({
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {stats.criadasUltimos30Dias}
+            {dynamicStats.criadasUltimos30Dias}
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
             Fase de caos e planilhas manuais
@@ -330,7 +408,7 @@ export default function RecentCompaniesDashboard({
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {stats.criadasUltimos90Dias}
+            {dynamicStats.criadasUltimos90Dias}
           </div>
           <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
             Maior taxa de conversão em software
@@ -345,7 +423,7 @@ export default function RecentCompaniesDashboard({
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {stats.taxaMediaSemSistema}%
+            {dynamicStats.taxaMediaSemSistema}%
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
             Média de probabilidade do radar
