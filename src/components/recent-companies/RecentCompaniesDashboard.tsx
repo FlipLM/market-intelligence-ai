@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Building2, 
   Search, 
@@ -48,6 +48,10 @@ export default function RecentCompaniesDashboard({
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"mais_recentes" | "maior_score" | "maior_capital">("mais_recentes");
 
+  // Paginação escalável para suportar bases de mais de 5.000 empresas em alta performance
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(30);
+
   // Seleção de leads para exportação em lote
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -79,8 +83,8 @@ export default function RecentCompaniesDashboard({
     };
   }, [companiesList, stats.taxaMediaSemSistema]);
 
-  // Buscar 100 empresas mais novas desconsiderando as já existentes na base
-  const handleFetchNewestCompanies = async () => {
+  // Buscar novas empresas desconsiderando as já existentes na base
+  const handleFetchNewestCompanies = async (batchLimit = 100) => {
     try {
       setIsFetchingNew(true);
       setExportFeedback(null);
@@ -89,14 +93,14 @@ export default function RecentCompaniesDashboard({
       const res = await fetch("/api/recent-companies/fetch-new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ existingCnpjs, limit: 100 }),
+        body: JSON.stringify({ existingCnpjs, limit: batchLimit }),
       });
 
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         const newLeads: RecentCompanyLead[] = data.data;
         if (newLeads.length === 0) {
-          setExportFeedback("ℹ️ Todas as empresas mais recentes disponíveis já estão adicionadas na sua base.");
+          setExportFeedback("ℹ️ Todas as empresas mais recentes disponíveis já foram adicionadas à sua base.");
         } else {
           setCompaniesList((prev) => {
             const prevCnpjs = new Set(prev.map((c) => c.cnpj.replace(/\D/g, "")));
@@ -104,7 +108,7 @@ export default function RecentCompaniesDashboard({
             return [...toAdd, ...prev];
           });
           setExportFeedback(
-            `🎯 Busca concluída! ${newLeads.length} empresas mais recentes foram adicionadas ao seu radar (${data.skippedCount || 0} já existentes foram desconsideradas).`
+            `🎯 Busca concluída! ${newLeads.length} novas empresas mais recentes foram adicionadas ao seu radar (${data.skippedCount || 0} já existentes foram desconsideradas).`
           );
         }
         setTimeout(() => setExportFeedback(null), 8000);
@@ -141,18 +145,38 @@ export default function RecentCompaniesDashboard({
     { id: "comercio_varejo", label: "Comércio Varejista" },
   ];
 
-  // Regiões no DF
+  // Regiões no DF (ampliado para cobrir as 33 Regiões Administrativas)
   const regions = [
     { id: "todos", label: "Todas as Regiões (DF)" },
     { id: "Águas Claras", label: "Águas Claras" },
     { id: "Asa Sul", label: "Asa Sul" },
     { id: "Asa Norte", label: "Asa Norte" },
+    { id: "Sudoeste", label: "Sudoeste" },
+    { id: "Noroeste", label: "Noroeste" },
     { id: "Taguatinga", label: "Taguatinga" },
     { id: "Ceilândia", label: "Ceilândia" },
-    { id: "Sudoeste", label: "Sudoeste" },
+    { id: "Samambaia", label: "Samambaia" },
     { id: "Guará", label: "Guará" },
     { id: "Vicente Pires", label: "Vicente Pires" },
+    { id: "Gama", label: "Gama" },
+    { id: "Sobradinho", label: "Sobradinho" },
+    { id: "Planaltina", label: "Planaltina" },
+    { id: "Santa Maria", label: "Santa Maria" },
+    { id: "Recanto das Emas", label: "Recanto das Emas" },
+    { id: "Riacho Fundo", label: "Riacho Fundo" },
+    { id: "Lago Sul", label: "Lago Sul" },
+    { id: "Lago Norte", label: "Lago Norte" },
+    { id: "Jardim Botânico", label: "Jardim Botânico" },
+    { id: "Núcleo Bandeirante", label: "Núcleo Bandeirante" },
+    { id: "Candangolândia", label: "Candangolândia" },
+    { id: "Cruzeiro", label: "Cruzeiro" },
+    { id: "Brazlândia", label: "Brazlândia" },
   ];
+
+  // Reset de página ao alterar qualquer filtro
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDays, selectedSector, selectedRegion, search, sortBy]);
 
   // Adicionar lead pesquisado via API aberta
   const handleAddLead = (newLead: RecentCompanyLead) => {
@@ -215,6 +239,13 @@ export default function RecentCompaniesDashboard({
     });
   }, [companiesList, selectedDays, selectedSector, selectedRegion, search, sortBy]);
 
+  // Paginação inteligente dos dados
+  const totalPages = Math.ceil(filteredCompanies.length / pageSize) || 1;
+  const paginatedCompanies = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCompanies.slice(start, start + pageSize);
+  }, [filteredCompanies, currentPage, pageSize]);
+
   // Manipulação de seleção
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -227,6 +258,16 @@ export default function RecentCompaniesDashboard({
       setSelectedIds([]);
     } else {
       setSelectedIds(filteredCompanies.map((c) => c.id));
+    }
+  };
+
+  const handleSelectCurrentPage = () => {
+    const pageIds = paginatedCompanies.map((c) => c.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    if (allPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -292,23 +333,31 @@ export default function RecentCompaniesDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            onClick={handleFetchNewestCompanies}
-            disabled={isFetchingNew}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 transition shadow-sm cursor-pointer disabled:opacity-60"
-            title="Busca as 100 empresas mais novas registradas na Receita, desconsiderando as que já estão na sua base"
-          >
-            {isFetchingNew ? (
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-emerald-100" />
-            )}
-            <span>
-              {isFetchingNew
-                ? "Buscando 100 Mais Novas..."
-                : "Buscar Novas Empresas (Top 100)"}
-            </span>
-          </button>
+          <div className="inline-flex rounded-xl shadow-xs">
+            <button
+              onClick={() => handleFetchNewestCompanies(100)}
+              disabled={isFetchingNew}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-l-xl text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 transition cursor-pointer disabled:opacity-60"
+              title="Busca as empresas mais novas registradas na Receita, desconsiderando as que já estão na sua base"
+            >
+              {isFetchingNew ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-emerald-100" />
+              )}
+              <span>
+                {isFetchingNew ? "Buscando Novas..." : "Buscar Novas Empresas (+100)"}
+              </span>
+            </button>
+            <button
+              onClick={() => handleFetchNewestCompanies(500)}
+              disabled={isFetchingNew}
+              className="px-3 py-2.5 rounded-r-xl text-xs font-bold text-emerald-100 bg-emerald-700 hover:bg-emerald-800 transition border-l border-emerald-500/40 cursor-pointer disabled:opacity-60"
+              title="Buscar lote de 500 empresas inéditas"
+            >
+              +500
+            </button>
+          </div>
 
           <button
             onClick={() => setIsLookupModalOpen(true)}
@@ -544,32 +593,39 @@ export default function RecentCompaniesDashboard({
 
       {/* Barra de Ações da Lista */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 px-1">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={filteredCompanies.length > 0 && selectedIds.length === filteredCompanies.length}
               onChange={handleSelectAll}
-              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
             />
-            <span>Selecionar Todas ({filteredCompanies.length})</span>
+            <span>Selecionar Todas ({filteredCompanies.length.toLocaleString('pt-BR')})</span>
           </label>
+
+          <button
+            onClick={handleSelectCurrentPage}
+            className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.06] transition cursor-pointer"
+          >
+            Selecionar Página ({paginatedCompanies.length})
+          </button>
 
           {selectedIds.length > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono font-semibold">
-              {selectedIds.length} selecionada(s)
+              {selectedIds.length.toLocaleString('pt-BR')} selecionada(s)
             </span>
           )}
         </div>
 
         <div className="text-[11px] font-mono">
-          Exibindo <strong className="text-slate-900 dark:text-white">{filteredCompanies.length}</strong> empresas qualificadas no DF
+          Exibindo página <strong className="text-slate-900 dark:text-white">{currentPage}</strong> de <strong className="text-slate-900 dark:text-white">{totalPages}</strong> ({filteredCompanies.length.toLocaleString('pt-BR')} empresas qualificadas no DF)
         </div>
       </div>
 
       {/* Grid de Cards dos Leads Recentes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCompanies.map((company) => {
+        {paginatedCompanies.map((company) => {
           const isSelected = selectedIds.includes(company.id);
           const dias = company.diasCriacao;
           const score = company.diagnosticoTecnologico.scoreSemSistema;
@@ -693,6 +749,79 @@ export default function RecentCompaniesDashboard({
           );
         })}
       </div>
+
+      {/* Controles de Paginação para Bases Grandes (5.000+ empresas) */}
+      {filteredCompanies.length > 0 && (
+        <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>Exibindo</span>
+            <strong className="text-slate-800 dark:text-slate-200 font-mono">
+              {((currentPage - 1) * pageSize + 1).toLocaleString('pt-BR')} - {Math.min(currentPage * pageSize, filteredCompanies.length).toLocaleString('pt-BR')}
+            </strong>
+            <span>de</span>
+            <strong className="text-slate-800 dark:text-slate-200 font-mono">
+              {filteredCompanies.length.toLocaleString('pt-BR')}
+            </strong>
+            <span>empresas</span>
+          </div>
+
+          {/* Botões de Navegação */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-white/[0.08] transition cursor-pointer disabled:cursor-not-allowed border border-slate-200 dark:border-white/[0.06]"
+            >
+              « Primeira
+            </button>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-white/[0.08] transition cursor-pointer disabled:cursor-not-allowed border border-slate-200 dark:border-white/[0.06]"
+            >
+              ‹ Anterior
+            </button>
+
+            <div className="px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-blue-600 text-white shadow-xs">
+              {currentPage} / {totalPages}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-white/[0.08] transition cursor-pointer disabled:cursor-not-allowed border border-slate-200 dark:border-white/[0.06]"
+            >
+              Próxima ›
+            </button>
+
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-white/[0.08] transition cursor-pointer disabled:cursor-not-allowed border border-slate-200 dark:border-white/[0.06]"
+            >
+              Última »
+            </button>
+          </div>
+
+          {/* Seleção de Itens por Página */}
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Por página:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 cursor-pointer focus:outline-none"
+            >
+              <option value={30} className="dark:bg-[#12141c]">30 empresas</option>
+              <option value={60} className="dark:bg-[#12141c]">60 empresas</option>
+              <option value={120} className="dark:bg-[#12141c]">120 empresas</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {filteredCompanies.length === 0 && (
         <div className="glass-panel p-10 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-center space-y-3">

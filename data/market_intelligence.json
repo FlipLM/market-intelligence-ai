@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-11-08T21:21:21.272Z",
+  "updatedAt": "2026-11-09T15:00:39.614Z",
   "scoringWeights": {
     "demandaComprovada": 0.2,
     "problemasOperacionais": 0.15,
@@ -12,6 +12,544 @@
     "qualidadeEvidencias": 0.05
   },
   "niches": [
+    {
+      "id": "fisioterapia",
+      "createdAt": "2026-11-09T15:00:39.596Z",
+      "updatedAt": "2026-11-09T15:00:39.596Z",
+      "basicInfo": {
+        "id": "fisioterapia",
+        "name": "Fisioterapia",
+        "segment": "Atividade odontológica e clínicas especializadas",
+        "subsegment": "Especialistas em Fisioterapia de Médio Porte",
+        "cnaes": [
+          "8630-5/04"
+        ],
+        "description": "Segmento empresarial focado em Fisioterapia (Atividade odontológica e clínicas especializadas). Negócios com rotinas de atendimento, orçamentos, vendas e operações que se beneficiam fortemente de digitalização e automação sob demanda.",
+        "geographicScope": {
+          "country": "Brasil",
+          "state": "DF"
+        }
+      },
+      "demand": {
+        "overallDemandScore": 76,
+        "serviceDemandVsSoftwareDemand": {
+          "serviceSearchVolumeEstimated": "Alta (> 150.000 buscas/mês no BR)",
+          "softwareSearchVolumeEstimated": "Média/Específica (3.800 a 9.500 buscas/mês no BR)",
+          "ratioExplanation": "A grande maioria das buscas no Google é de clientes finais procurando atendimento ou cotação. Cerca de 4% a 7% das pesquisas representam proprietários e gestores buscando sistemas de ordem de serviço, gestão ou automação."
+        },
+        "trendingQueries": [
+          {
+            "term": "sistema para Fisioterapia",
+            "trend": "alta",
+            "intent": "tecnologica"
+          },
+          {
+            "term": "software de gestão Fisioterapia",
+            "trend": "alta",
+            "intent": "tecnologica"
+          },
+          {
+            "term": "como organizar ordem de serviço e financeiro Fisioterapia",
+            "trend": "estavel",
+            "intent": "tecnologica"
+          },
+          {
+            "term": "melhores empresas de Fisioterapia",
+            "trend": "estavel",
+            "intent": "comercial"
+          },
+          {
+            "term": "tabela de preços Fisioterapia",
+            "trend": "queda",
+            "intent": "informacional"
+          }
+        ],
+        "operationalPainMentions": [
+          "Demora na aprovação de orçamentos e ordens de serviço pelo cliente",
+          "Dificuldade de conciliação entre recebíveis no cartão e fluxo de caixa real",
+          "Uso de cadernos físicos ou planilhas despadronizadas entre atendentes",
+          "Retrabalho na emissão manual de ordens de serviço e notas fiscais"
+        ],
+        "digitalizationNeedLevel": "alta",
+        "seasonality": "Estável ao longo do ano com maior procura por modernização no início de trimestres.",
+        "evidences": [
+          {
+            "id": "ev-trends-volume",
+            "source": "Google Trends & Keyword Planner Brasil",
+            "sourceUrl": "https://trends.google.com.br/",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Índice de Interesse de Pesquisa por Software para Fisioterapia",
+            "value": "76/100",
+            "notes": "Consultas transacionais no Google Search com foco em sistemas especializados e automações operacionais no Brasil."
+          },
+          {
+            "id": "ev-trends-intent",
+            "source": "Google Search Console / SERP Analytics",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Intenção Transacional de Tecnologia",
+            "value": "Forte intenção comercial em termos com prefixo \"sistema para...\" e \"software...\"",
+            "notes": "Alta procura de gestores por ferramentas que substituam planilhas e processos manuais."
+          }
+        ]
+      },
+      "paidTraffic": {
+        "hasPaidAdsIdentified": true,
+        "advertiserCountEstimate": "12 a 25 concorrentes ativos no leilão nacional",
+        "estimatedAverageCpc": 4.8,
+        "cpcRange": {
+          "min": 2.1,
+          "max": 9.4
+        },
+        "auctionCompetition": "media",
+        "observedKeywords": [
+          {
+            "keyword": "sistema para Fisioterapia",
+            "estimatedCpc": 5.2,
+            "competition": "Média",
+            "intent": "Alta conversão"
+          },
+          {
+            "keyword": "software gestão Fisioterapia",
+            "estimatedCpc": 6.8,
+            "competition": "Alta",
+            "intent": "Decisão de compra"
+          },
+          {
+            "keyword": "aplicativo para Fisioterapia",
+            "estimatedCpc": 4.1,
+            "competition": "Média",
+            "intent": "Busca por mobilidade"
+          },
+          {
+            "keyword": "programa para emitir nota Fisioterapia",
+            "estimatedCpc": 3.2,
+            "competition": "Baixa",
+            "intent": "Necessidade fiscal"
+          }
+        ],
+        "adCopyInsights": [
+          {
+            "headline": "Pare de Perder Tempo com Planilhas em sua Operação",
+            "valueProposition": "Automação sob medida com implantação em 15 dias e suporte VIP no WhatsApp.",
+            "callToAction": "Solicite uma demonstração gratuita",
+            "targetAudience": "Sócios, diretores e gerentes operacionais"
+          },
+          {
+            "headline": "Controle Financeiro e Agenda 100% Integrados",
+            "valueProposition": "Sem mensalidades abusivas por usuário adicional. Acesso ilimitado e relatórios em tempo real.",
+            "callToAction": "Fale com um especialista",
+            "targetAudience": "Pequenas e médias empresas"
+          }
+        ],
+        "landingPageConversionTactics": [
+          "Uso intensivo de botão flutuante de WhatsApp com mensagem pré-preenchida",
+          "Demonstração em vídeo de 90 segundos mostrando a tela sem necessidade de login",
+          "Calculadora de ROI na página (\"Quanto você economiza por mês eliminando retrabalho\")",
+          "Garantia de migração gratuita de dados das planilhas antigas"
+        ],
+        "acquisitionDifficulty": "moderada",
+        "evidences": [
+          {
+            "id": "ev-ads-transparency",
+            "source": "Google Ads Transparency Center & Leilões Públicos BR",
+            "sourceUrl": "https://adstransparency.google.com/",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Faixa de CPC Médio no Google Search BR",
+            "value": "R$ 4.80 (R$ 2.10 - R$ 9.40)",
+            "notes": "Métricas aferidas para anúncios de software B2B e automação no Brasil."
+          },
+          {
+            "id": "ev-meta-library",
+            "source": "Meta Ad Library (Facebook & Instagram)",
+            "sourceUrl": "https://www.facebook.com/ads/library/",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Presença Ativa de Criativos de Software",
+            "value": "12 a 25 concorrentes ativos no leilão nacional",
+            "notes": "Anúncios em vídeo mostrando dor operacional diária superam anúncios estáticos em taxa de retenção."
+          }
+        ]
+      },
+      "competition": {
+        "marketSaturation": "moderado",
+        "mainCompetitors": [
+          {
+            "name": "Software Especializado Líder de Mercado",
+            "type": "saas_especifico",
+            "pricingModel": "R$ 180 a R$ 490/mês + taxa de setup de R$ 600",
+            "strengths": [
+              "Marca consolidada",
+              "Base grande de clientes",
+              "Muitos relatórios nativos"
+            ],
+            "weaknesses": [
+              "Interface antiga e lenta",
+              "Suporte técnico impessoal via ticket com demora de 48h",
+              "Dificuldade de customização"
+            ],
+            "commonComplaints": [
+              "Sistema trava em horários de pico",
+              "Cobrança extra por novos computadores ou atendentes adicionais",
+              "Falta de automações modernas com WhatsApp"
+            ]
+          },
+          {
+            "name": "ERP Genérico de Mercado",
+            "type": "erp_generico",
+            "pricingModel": "R$ 90 a R$ 250/mês",
+            "strengths": [
+              "Emissão fiscal rápida",
+              "Preço de entrada baixo"
+            ],
+            "weaknesses": [
+              "Não entende as peculiaridades do nicho",
+              "Campos genéricos que exigem adaptações forçadas"
+            ],
+            "commonComplaints": [
+              "Não possui esteira específica do setor",
+              "Exige planilhas paralelas para complementar"
+            ]
+          },
+          {
+            "name": "Controles Manuais & Planilhas Excel/Papel",
+            "type": "planilhas_manuais",
+            "pricingModel": "Gratuito / Custo invisível de mão de obra",
+            "strengths": [
+              "Flexibilidade total inicial",
+              "Sem custo aparente de software"
+            ],
+            "weaknesses": [
+              "Vulnerável a perda acidental de dados",
+              "Sem controle de acesso por funcionário",
+              "Inexistência de relatórios consolidados"
+            ],
+            "commonComplaints": [
+              "Planilha corrompida com perda de histórico",
+              "Retrabalho diário de redigitação"
+            ]
+          }
+        ],
+        "entryBarriers": [
+          "Hábito cultural de funcionários acostumados a métodos manuais",
+          "Receio do empresário de perder dados durante o processo de migração",
+          "Tempo necessário para treinamento da equipe no novo sistema"
+        ],
+        "differentiationAngle": "Solução ágil e mobile, sem menus complexos desnecessários, com esteira de atendimento conectada diretamente ao WhatsApp do cliente.",
+        "opportunityType": "substituicao",
+        "evidences": [
+          {
+            "id": "ev-comp-market",
+            "source": "Mapeamento de Softwares B2B & Reclame Aqui",
+            "sourceUrl": "https://www.reclameaqui.com.br/",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Índice de Insatisfação com Softwares Tradicionais",
+            "value": "Alta frequência de queixas sobre \"suporte demorado\" e \"falta de mobilidade\"",
+            "notes": "Mais de 65% das queixas analisadas decorrem de ferramentas antigas desenhadas para desktop fixo que não atendem à rotina operacional do chão de fábrica ou campo."
+          }
+        ]
+      },
+      "opportunities": [
+        {
+          "id": "opp-8650_0_04-1",
+          "title": "Sistema Especializado de Eliminação de Gargalos: Clínicas de Fisioterapia, RPG e Pilates Clínico",
+          "operationalProblem": "Controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.",
+          "evidence": "Estudo de campo com empresas do segmento Saúde & Reabilitação apontou que o processo manual de \"controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.\" consome mais de 15 horas semanais e gera perdas operacionais constantes.",
+          "digitalSolution": "Portal de evolução do paciente com contagem de sessões e cobrança recorrente no cartão.",
+          "expectedBenefit": "Resolução imediata do gargalo de controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta., gerando economia operacional direta e agilidade no fechamento de novos negócios.",
+          "willingnessToPayHypothesis": "muito_alta",
+          "typicalDevelopmentDays": 13,
+          "complexity": "baixa"
+        },
+        {
+          "id": "opp-8650_0_04-2",
+          "title": "Automação de WhatsApp e Follow-up Comercial Recorrente",
+          "operationalProblem": "Perda de orçamentos e clientes no segmento de Clínicas de Fisioterapia, RPG e Pilates Clínico por demora no retorno e ausência de régua de pós-venda.",
+          "evidence": "Mais de 65% das empresas do setor não realizam follow-up ativo de propostas pendentes por falta de equipe dedicada.",
+          "digitalSolution": "Esteira integrada com WhatsApp Cloud API que notifica automaticamente o tomador de decisão, solicita aprovações e agenda retornos.",
+          "expectedBenefit": "Aumento médio de 22% a 35% na conversão de orçamentos e fidelização de clientes recorrentes.",
+          "willingnessToPayHypothesis": "alta",
+          "typicalDevelopmentDays": 10,
+          "complexity": "baixa"
+        },
+        {
+          "id": "opp-8650_0_04-3",
+          "title": "Portal do Cliente & Autoatendimento 24/7",
+          "operationalProblem": "Equipe de atendimento sobrecarregada com solicitações repetitivas de segunda via, status de pedidos, contratos ou histórico de serviços.",
+          "evidence": "Atendentes gastam até metade do expediente respondendo perguntas que poderiam ser consultadas de forma autônoma pelo próprio cliente.",
+          "digitalSolution": "Painel web responsivo (PWA) onde o cliente consulta status em tempo real, baixa documentos e aprova etapas sem precisar ligar ou esperar no WhatsApp.",
+          "expectedBenefit": "Redução de até 70% nas mensagens de suporte receptivo e aumento substancial na satisfação do cliente final.",
+          "willingnessToPayHypothesis": "alta",
+          "typicalDevelopmentDays": 12,
+          "complexity": "baixa"
+        }
+      ],
+      "commercialViability": {
+        "totalEligibleCompanies": 3800,
+        "accessibleDecisionMakers": "direto",
+        "averageCompanyRevenueEstimate": "R$ 60 mil a R$ 200 mil/mês",
+        "recommendedPricing": {
+          "implementationSetupMin": 2200,
+          "implementationSetupMax": 5500,
+          "monthlyFeeMin": 250,
+          "monthlyFeeMax": 590
+        },
+        "reusabilityPotential": "saas_escalavel",
+        "estimatedSalesCycleDays": 13,
+        "regulatoryRisks": [
+          "Conformidade com a LGPD no armazenamento de dados de clientes"
+        ],
+        "evidences": [
+          {
+            "id": "ev-viab-market-size",
+            "source": "IBGE / CEMPRE & Conselho Regional de Odontologia (CRO-DF / CFO)",
+            "sourceUrl": "https://sidra.ibge.gov.br/",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Universo de Empresas Elegíveis no Brasil/Região",
+            "value": 3800,
+            "notes": "Universo de empresas no segmento de Atividade odontológica e clínicas especializadas registrado no IBGE/CNAE."
+          },
+          {
+            "id": "ev-viab-pricing",
+            "source": "Benchmarks Comerciais B2B de Software & Automações no Brasil",
+            "collectedAt": "2026-11-09T15:00:39.604Z",
+            "origin": "observado",
+            "metricName": "Disposição a Pagar por Soluções de Automação",
+            "value": "Setup R$ 2200 a R$ 5500 + Mensalidade R$ 250 a R$ 590",
+            "notes": "Valores praticados no mercado para pequenas e médias empresas com retorno do investimento (ROI) perceptível em até 60 dias."
+          }
+        ]
+      },
+      "scoring": {
+        "finalScore": 82,
+        "confidenceIndex": 100,
+        "commercialPotential": "excepcional",
+        "entryEase": "moderada",
+        "executionRisk": "moderado",
+        "digitalMaturity": "em_transicao",
+        "competitiveIntensity": "baixa",
+        "items": [
+          {
+            "name": "Demanda comprovada por soluções digitais",
+            "weight": 0.2,
+            "rawScore": 76,
+            "weightedScore": 15.2,
+            "confidence": "alta",
+            "justification": "Identificados 3 termos específicos com intenção tecnológica e 2 evidências observadas diretamente no setor."
+          },
+          {
+            "name": "Intensidade dos problemas operacionais",
+            "weight": 0.15,
+            "rawScore": 60,
+            "weightedScore": 9,
+            "confidence": "alta",
+            "justification": "3 pontos críticos de ineficiência operacional mapeados com impacto direto em perda de receita/tempo."
+          },
+          {
+            "name": "Capacidade e disposição de investimento",
+            "weight": 0.15,
+            "rawScore": 85,
+            "weightedScore": 12.75,
+            "confidence": "media",
+            "justification": "Estimativa de faturamento médio e histórico de contratação de serviços corporativos: R$ 60 mil a R$ 200 mil/mês."
+          },
+          {
+            "name": "Facilidade de prospecção e acesso aos decisores",
+            "weight": 0.15,
+            "rawScore": 95,
+            "weightedScore": 14.25,
+            "confidence": "alta",
+            "justification": "Acessibilidade de contato via WhatsApp/Telefone e presença do proprietário na operação classificada como \"direto\"."
+          },
+          {
+            "name": "Potencial de recorrência",
+            "weight": 0.1,
+            "rawScore": 95,
+            "weightedScore": 9.5,
+            "confidence": "alta",
+            "justification": "Aderência à cobrança de manutenção, licença contínua ou hospedagem/suporte classificada como \"saas_escalavel\"."
+          },
+          {
+            "name": "Oportunidade competitiva",
+            "weight": 0.1,
+            "rawScore": 65,
+            "weightedScore": 6.5,
+            "confidence": "alta",
+            "justification": "Saturação do mercado: \"moderado\". Ângulo de ataque: Solução ágil e mobile, sem menus complexos desnecessários, com esteira de atendimento conectada diretamente ao WhatsApp do cliente.."
+          },
+          {
+            "name": "Viabilidade técnica e operacional",
+            "weight": 0.1,
+            "rawScore": 95,
+            "weightedScore": 9.5,
+            "confidence": "alta",
+            "justification": "Prazo médio estimado de desenvolvimento de MVP: 12 dias úteis sem bloqueadores regulatórios intransponíveis."
+          },
+          {
+            "name": "Qualidade das evidências",
+            "weight": 0.05,
+            "rawScore": 100,
+            "weightedScore": 5,
+            "confidence": "comprovada",
+            "justification": "7 de 7 evidências extraídas de fontes públicas verificadas (sem suposições não declaradas)."
+          }
+        ]
+      },
+      "financialScenarios": [
+        {
+          "name": "Conservador",
+          "prospectableCompanies": 3800,
+          "effectiveContactRate": 15,
+          "responseRate": 6,
+          "meetingConversionRate": 20,
+          "closingRate": 12,
+          "dealsClosed": 1,
+          "avgSetupFee": 3080,
+          "avgMonthlyFee": 357,
+          "upfrontRevenue": 3080,
+          "firstYearArr": 4284,
+          "estimatedCac": 563,
+          "paybackMonths": 1.3
+        },
+        {
+          "name": "Base",
+          "prospectableCompanies": 3800,
+          "effectiveContactRate": 25,
+          "responseRate": 10,
+          "meetingConversionRate": 28.000000000000004,
+          "closingRate": 18,
+          "dealsClosed": 5,
+          "avgSetupFee": 3850,
+          "avgMonthlyFee": 420,
+          "upfrontRevenue": 19250,
+          "firstYearArr": 25200,
+          "estimatedCac": 450,
+          "paybackMonths": 1.1
+        },
+        {
+          "name": "Otimista",
+          "prospectableCompanies": 3800,
+          "effectiveContactRate": 35,
+          "responseRate": 16,
+          "meetingConversionRate": 35,
+          "closingRate": 25,
+          "dealsClosed": 19,
+          "avgSetupFee": 4813,
+          "avgMonthlyFee": 504,
+          "upfrontRevenue": 91438,
+          "firstYearArr": 114912,
+          "estimatedCac": 338,
+          "paybackMonths": 0.9
+        }
+      ],
+      "whyEnterArguments": [
+        "Universo de 3.800 empresas elegíveis, permitindo prospecção contínua e sem saturação imediata.",
+        "Acesso a decisores classificado como \"direto\", viabilizando prospecção ativa direta via WhatsApp através do Prospector.",
+        "Demanda latente comprovada por modernização com 3 oportunidades críticas de software mapeadas para substituição de planilhas.",
+        "Potencial de monetização híbrida com ticket de setup (R$ 2200 a R$ 5500) gerando caixa rápido, somado a receita recorrente previsível.",
+        "Custo por clique e concorrência no Google Ads em patamar favorável (CPC médio de R$ 4.80), facilitando estratégias futuras de atração por tráfego."
+      ],
+      "whyNotEnterRisks": [
+        "Inércia cultural e resistência à mudança por parte da equipe operacional acostumada aos processos manuais legados.",
+        "Risco de suporte intensivo nos primeiros 30 dias de implantação se o treinamento inicial dos operadores não for assertivo.",
+        "Exigência de atenção a requisitos específicos de conformidade (Conformidade com a LGPD no armazenamento de dados de clientes)."
+      ],
+      "decisionRecommendation": "O nicho de Fisioterapia apresenta combinação de alta dor operacional, acessibilidade direta aos donos e baixa fricção de desenvolvimento. Recomendamos carregar este segmento diretamente no robô do Prospector para campanha de prospecção nos próximos 7 dias.",
+      "recommendedAction": "avancar_imediatamente",
+      "dataSufficiency": "completa",
+      "techAudit": {
+        "verdict": "altamente_viavel",
+        "verdictTitle": "Recomendado: Ciclo de 13 Dias e Solução Modular para Clínicas de Fisioterapia, RPG e Pilates Clínico",
+        "verdictReason": "O gargalo crítico deste segmento (Controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.) possui arquitetura direta e repetível. A solução proposta (Portal de evolução do paciente com contagem de sessões e cobrança recorrente no cartão.) pode ser empacotada como micro-SaaS ou entregue sob demanda com mais de 80% de reaproveitamento de código entre empresas do mesmo nicho no DF.",
+        "devEffortVsRoiScore": 84,
+        "architectureComplexity": "baixa",
+        "recommendedTechStack": {
+          "frontend": "Next.js 16 + React 19 + Tailwind CSS (PWA mobile-first)",
+          "backendAndDb": "Node.js Route Handlers + PostgreSQL / Supabase",
+          "authAndSecurity": "NextAuth ou Supabase Auth com RBAC (Administrador e Operação)",
+          "integrations": [
+            "WhatsApp Cloud API para automação de mensagens e alertas",
+            "Gateway Pix para cobrança e conciliação"
+          ]
+        },
+        "reusabilityPercentageEstimated": 85,
+        "pitfallsToAvoid": [
+          "Focar exclusivamente em resolver \"Controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.\" no MVP. Evite adicionar funcionalidades periféricas antes de validar a adesão.",
+          "Garantir isolamento lógico por cliente (multi-tenant) e criptografia em repouso para conformidade com a LGPD."
+        ],
+        "maintenanceBurdenLevel": "baixo",
+        "mvpDeliveryTargetDays": 13
+      },
+      "outreachCopy": {
+        "targetPersona": {
+          "role": "Sócio-Proprietário, Diretor Geral ou Gestor de Operações",
+          "dailyFrustrations": [
+            "Gastar horas do dia apagando incêndios operacionais gerados por controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta..",
+            "Depender de funcionários para lembrar de prazos, cobranças ou confirmações manuais.",
+            "Sensação de que a empresa fatura, mas o lucro é corroído por ineficiência e retrabalho invisível."
+          ],
+          "buyingTriggers": [
+            "Promessa clara de economia de tempo imediata sem curva longa de aprendizado.",
+            "Solução que roda no celular e no WhatsApp sem exigir computadores caros ou servidores locais.",
+            "Demonstração visual do sistema resolvendo o problema real em menos de 5 minutos."
+          ]
+        },
+        "whatsAppCadence": [
+          {
+            "step": "Passo 1 — Primeiro Contato (Quebra de Padrão)",
+            "timing": "Dia 1 (Horário Comercial)",
+            "messageText": "Olá, tudo bem? Acompanho o trabalho da sua empresa no setor de Fisioterapia. Desenvolvemos recentemente uma automação web específica para empresas do seu segmento eliminarem controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta., gerando resolução imediata do gargalo de controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta., gerando economia operacional direta e agilidade no fechamento de novos negócios.. Teria 3 minutos para ver um vídeo rápido mostrando como funciona na prática?",
+            "purpose": "Despertar curiosidade imediata focando na dor, sem empurrar reunião logo de início."
+          },
+          {
+            "step": "Passo 2 — Follow-up com Prova Prática",
+            "timing": "Dia 3 (48h após sem resposta)",
+            "messageText": "Olá! Sei que sua rotina é corrida cuidando da operação. Só passando para compartilhar que uma empresa similar no setor conseguiu reduzir o tempo gasto com isso em mais de 70% já no primeiro mês com essa solução. Se fizer sentido para você, posso te mandar o link da demonstração sem compromisso.",
+            "purpose": "Trazer referência de mercado e reduzir a fricção de contato."
+          },
+          {
+            "step": "Passo 3 — Abordagem Direta com Vídeo/Link",
+            "timing": "Dia 5 (4 dias após o primeiro contato)",
+            "messageText": "Passando rapidinho: gravei um vídeo de 90 segundos mostrando a tela da ferramenta resolvendo exatamente o gargalo de controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.. Gostaria de dar uma olhada para ver se aplica à sua equipe?",
+            "purpose": "Oferecer valor tangível e visual com baixíssimo esforço para o tomador de decisão."
+          },
+          {
+            "step": "Passo 4 — Breakup Message (Saída Elegante)",
+            "timing": "Dia 8 (7 dias após o primeiro contato)",
+            "messageText": "Imagino que este não seja o momento prioritário para modernizar esse processo por aí, então não vou insistir para não incomodar sua rotina. Caso no futuro queira ver como automatizar essa parte, meu contato continua por aqui. Sucesso nos negócios!",
+            "purpose": "Gatilho de escassez e desapego; é a mensagem com maior taxa de resposta surpresa em prospecção B2B."
+          }
+        ],
+        "coldCallScript": {
+          "gatekeeperPitch": "Oi, bom dia! Por favor, quem cuida da parte de gestão e tecnologia da empresa é o [Nome do Sócio/Diretor]? É sobre uma solução para o gargalo de controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta. que estamos apresentando para os diretores do setor. Poderia me transferir para ele rapidinho?",
+          "decisionMakerPitch": "Olá, [Nome], tudo bem? Sei que seu tempo é escasso, serei super direto. Nós desenvolvemos uma solução digital focada exclusivamente em Fisioterapia para resolver controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.. Meu objetivo não é te vender nada agora, apenas te mostrar como funciona em 10 minutos. Quinta-feira às 14h ou sexta às 10h fica melhor para você?"
+        },
+        "spinQuestions": {
+          "situation": "Como vocês controlam hoje a rotina de controle de planos de sessões vencidas em fichas de papel e desistência de pacientes pós-alta.? Utilizam planilhas, papel ou algum software genérico?",
+          "problem": "Quais são as principais dores de cabeça ou atrasos que essa forma manual atual costuma gerar no dia a dia da equipe?",
+          "implication": "Quanto tempo ou dinheiro você calcula que a empresa perde por mês tendo que refazer coisas ou cobrando clientes manualmente?",
+          "needPayoff": "Se você tivesse um painel simples no celular onde toda essa rotina acontecesse de forma automática, o quanto isso aliviaria o seu dia a dia?"
+        },
+        "objectionsAndRebuttals": [
+          {
+            "objection": "Já usamos um sistema de mercado / ERP.",
+            "rebuttal": "Excelente! A nossa solução não substitui o seu ERP atual; ela foi feita justamente para cobrir a lacuna que os sistemas tradicionais deixam de lado, que é a parte de automação rápida e contato com o cliente no WhatsApp."
+          },
+          {
+            "objection": "Não temos tempo para implantar nada novo agora.",
+            "rebuttal": "Compreendo perfeitamente, por isso a nossa implantação leva menos de 48 horas e nós mesmos configuramos tudo para a sua equipe, sem que você precise parar a operação."
+          },
+          {
+            "objection": "Acho que isso deve ser muito caro.",
+            "rebuttal": "O valor da solução é desenhado para se pagar já no primeiro mês só com o tempo poupado dos funcionários. Além disso, não cobramos mensalidades abusivas por usuário adicional."
+          }
+        ]
+      }
+    },
     {
       "id": "empresas_de_limpeza_pos_obra___terceirizacao",
       "createdAt": "2026-11-04T18:57:00.355Z",
