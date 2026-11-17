@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { parseBrasilApiResponseToLead } from '../src/lib/connectors/openCnpjApi';
+import {
+  filterRecentActiveApiRows,
+  parseBrasilApiResponseToLead,
+} from '../src/lib/connectors/openCnpjApi';
 import { classifyContactOrigin } from '../src/lib/connectors/contactClassifier';
 import {
   buildStandardWhatsAppMessage,
@@ -313,4 +316,51 @@ test('(d) Heurística detecta telefone repetido em múltiplos CNPJs como possive
   const classification = classifyContactOrigin(leadB, [leadA, leadB]);
   assert.equal(classification.tipoContato.valor, 'possivel_contabilidade');
   assert.equal(classification.tipoContato.status, 'inferido');
+});
+
+test('(e) Filtro da busca paginada aceita apenas ATIVA dentro da janela e preserva proveniência de codigo_municipio_ibge', () => {
+  const refNow = Date.parse('2026-11-17T12:00:00Z');
+  const rows = [
+    {
+      cnpj: '69075039000174',
+      razao_social: 'IMPULSONE PERFORMANCE EMPRESARIAL LTDA',
+      descricao_situacao_cadastral: 'ATIVA',
+      data_inicio_atividade: '2026-09-11',
+      codigo_municipio_ibge: 5300108,
+      ddd_telefone_1: '6195927807',
+      uf: 'DF',
+      municipio: 'BRASILIA',
+    },
+    {
+      cnpj: '11653096000103',
+      razao_social: 'EMPRESA BAIXADA ANTIGA LTDA',
+      descricao_situacao_cadastral: 'BAIXADA',
+      data_inicio_atividade: '2026-09-11',
+      uf: 'DF',
+    },
+    {
+      cnpj: '33333333000191',
+      razao_social: 'EMPRESA ATIVA ANTIGA LTDA',
+      descricao_situacao_cadastral: 'ATIVA',
+      data_inicio_atividade: '2020-01-10',
+      ddd_telefone_1: '6133330000',
+      uf: 'DF',
+    },
+  ];
+
+  const filtered = filterRecentActiveApiRows(rows, 180, {
+    onlyWithPhone: true,
+    referenceNowMs: refNow,
+  });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].cnpj, '69075039000174');
+
+  const lead = parseBrasilApiResponseToLead(filtered[0], {
+    fonte: 'Receita Federal via MinhaReceita (busca paginada)',
+    url_ou_api: 'https://minhareceita.org/?uf=DF&limit=1024',
+  });
+  assertAllProvenanceFieldsValid(lead, 'paginatedLead');
+  assert.ok(lead.codigoIbgeMunicipio);
+  assert.equal(lead.codigoIbgeMunicipio.status, 'verificado');
+  assert.equal(lead.codigoIbgeMunicipio.valor, 5300108);
 });

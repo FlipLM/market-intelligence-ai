@@ -18,6 +18,7 @@ export interface RecentCompaniesStore {
   companies: RecentCompanyLead[];
   doNotContactCnpjs: string[];
   doNotContactPhones: string[];
+  discoveryCursors?: Record<string, string>;
 }
 
 function ensureDir() {
@@ -51,6 +52,7 @@ export function readRecentCompaniesStore(): RecentCompaniesStore {
       ),
       doNotContactCnpjs: parsed.doNotContactCnpjs || [],
       doNotContactPhones: parsed.doNotContactPhones || [],
+      discoveryCursors: parsed.discoveryCursors || {},
     };
   } catch (err) {
     console.error('Erro ao ler base de empresas recentes:', err);
@@ -136,10 +138,17 @@ export function upsertRecentCompany(lead: RecentCompanyLead): RecentCompanyLead 
   return store.companies.find((c) => c.id === lead.id) || lead;
 }
 
-export function upsertRecentCompaniesBatch(leads: RecentCompanyLead[]): number {
-  if (leads.length === 0) return 0;
+export function upsertRecentCompaniesBatchWithStats(leads: RecentCompanyLead[]): {
+  totalProcessed: number;
+  addedCount: number;
+  updatedCount: number;
+} {
+  if (leads.length === 0) {
+    return { totalProcessed: 0, addedCount: 0, updatedCount: 0 };
+  }
   const store = readRecentCompaniesStore();
-  let addedOrUpdated = 0;
+  let addedCount = 0;
+  let updatedCount = 0;
 
   for (const lead of leads) {
     const cleanCnpj = (lead.cnpj.valor || '').replace(/\D/g, '');
@@ -156,16 +165,42 @@ export function upsertRecentCompaniesBatch(leads: RecentCompanyLead[]): number {
             : lead.diagnostico,
         abordagem: existing.abordagem,
       };
+      updatedCount++;
     } else {
       store.companies.unshift(lead);
+      addedCount++;
     }
-    addedOrUpdated++;
   }
 
   store.companies = reclassifyAllContacts(store.companies);
   applyDoNotContactFlags(store);
   writeRecentCompaniesStore(store);
-  return addedOrUpdated;
+  return {
+    totalProcessed: addedCount + updatedCount,
+    addedCount,
+    updatedCount,
+  };
+}
+
+export function upsertRecentCompaniesBatch(leads: RecentCompanyLead[]): number {
+  return upsertRecentCompaniesBatchWithStats(leads).totalProcessed;
+}
+
+export function getDiscoveryCursor(filterKey: string): string | undefined {
+  const store = readRecentCompaniesStore();
+  return store.discoveryCursors?.[filterKey];
+}
+
+export function setDiscoveryCursor(filterKey: string, cursor: string | undefined): void {
+  const store = readRecentCompaniesStore();
+  const nextCursors = { ...(store.discoveryCursors || {}) };
+  if (cursor) {
+    nextCursors[filterKey] = cursor;
+  } else {
+    delete nextCursors[filterKey];
+  }
+  store.discoveryCursors = nextCursors;
+  writeRecentCompaniesStore(store);
 }
 
 export function updateRecentCompanyManualFields(

@@ -17,6 +17,8 @@ import {
   Loader2,
   ShieldCheck,
   AlertTriangle,
+  RefreshCw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   RecentCompanyLead,
@@ -53,6 +55,14 @@ export default function RecentCompaniesDashboard({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+
+  const [discovering, setDiscovering] = useState(false);
+  const [showDiscoveryConfig, setShowDiscoveryConfig] = useState(false);
+  const [discoveryUf, setDiscoveryUf] = useState('DF');
+  const [discoveryDays, setDiscoveryDays] = useState(180);
+  const [discoveryCnae, setDiscoveryCnae] = useState('');
+  const [discoveryOnlyPhone, setDiscoveryOnlyPhone] = useState(false);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
   const [activeWhatsAppLead, setActiveWhatsAppLead] = useState<RecentCompanyLead | null>(null);
   const [activeDetailsLead, setActiveDetailsLead] = useState<RecentCompanyLead | null>(null);
@@ -125,6 +135,48 @@ export default function RecentCompaniesDashboard({
     setExportFeedback(`${leads.length} empresa(s) importada(s) e classificada(s).`);
     setTimeout(() => setExportFeedback(null), 6000);
     void refreshFromServer();
+  };
+
+  const handleFetchRealRecentCompanies = async (resetCursor = false) => {
+    try {
+      setDiscovering(true);
+      setDiscoveryError(null);
+      setExportFeedback(null);
+
+      const res = await fetch('/api/recent-companies/fetch-new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uf: discoveryUf,
+          maxAgeDays: discoveryDays,
+          cnaeFiscal: discoveryCnae.trim() || undefined,
+          onlyWithPhone: discoveryOnlyPhone,
+          resetCursor,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setDiscoveryError(data.error || 'Falha ao consultar empresas recentes na Receita Federal.');
+        return;
+      }
+
+      const compLabel = data.datasetCompetencia?.valor
+        ? `competência ${data.datasetCompetencia.valor}`
+        : 'base pública atualizada';
+      const warningPart = data.warning ? ` Aviso: ${data.warning}` : '';
+      const exhaustedPart = data.exhausted
+        ? ' Fim dos registros para este filtro; próxima busca reinicia.'
+        : '';
+
+      setExportFeedback(
+        `Consulta real MinhaReceita (${compLabel}, UF ${data.uf}, ≤ ${data.maxAgeDays}d): ${data.scannedRows} registros oficiais lidos (${data.activeRows} ativos) → ${data.addedCount} nova(s) adicionada(s), ${data.updatedCount} atualizada(s).${exhaustedPart}${warningPart}`
+      );
+      await refreshFromServer();
+    } catch (err: unknown) {
+      setDiscoveryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDiscovering(false);
+    }
   };
 
   const handleCompanyUpdated = (updated: RecentCompanyLead) => {
@@ -250,6 +302,35 @@ export default function RecentCompaniesDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="inline-flex items-center rounded-xl overflow-hidden shadow-xs border border-emerald-600/30">
+            <button
+              onClick={() => void handleFetchRealRecentCompanies(false)}
+              disabled={discovering}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer disabled:opacity-60"
+              title="Varre registros públicos reais da Receita Federal (MinhaReceita) por UF e janela de abertura"
+            >
+              {discovering ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span>
+                {discovering
+                  ? 'Consultando Receita...'
+                  : `Buscar Recentes (${discoveryUf}, ≤${discoveryDays}d)`}
+              </span>
+            </button>
+            <button
+              onClick={() => setShowDiscoveryConfig((v) => !v)}
+              disabled={discovering}
+              className="px-2.5 py-2.5 text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer border-l border-emerald-500/40"
+              title="Configurar UF, janela de dias e CNAE da busca"
+              aria-label="Configurar busca de empresas recentes"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             onClick={() => setIsLookupModalOpen(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition cursor-pointer shadow-xs"
@@ -277,6 +358,94 @@ export default function RecentCompaniesDashboard({
           </button>
         </div>
       </div>
+
+      {showDiscoveryConfig && (
+        <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+              Parâmetros da Busca Paginada Oficial (MinhaReceita / Receita Federal)
+            </div>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Varre blocos reais de até 1.024 CNPJs/página (3 páginas/clique) e filtra apenas empresas ATIVAS na janela escolhida.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <label className="space-y-1 text-xs">
+              <span className="text-slate-600 dark:text-slate-300 font-medium block">Estado (UF)</span>
+              <select
+                value={discoveryUf}
+                onChange={(e) => setDiscoveryUf(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-[#0c0e14] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white"
+              >
+                {['DF', 'SP', 'RJ', 'MG', 'GO', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'ES', 'MT', 'MS', 'PA', 'AM', 'MA', 'PB', 'RN', 'AL', 'SE', 'PI', 'RO', 'TO', 'AC', 'AP', 'RR'].map((uf) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-xs">
+              <span className="text-slate-600 dark:text-slate-300 font-medium block">Abertas nos últimos</span>
+              <select
+                value={discoveryDays}
+                onChange={(e) => setDiscoveryDays(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-[#0c0e14] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white"
+              >
+                <option value={90}>≤ 90 dias</option>
+                <option value={180}>≤ 180 dias</option>
+                <option value={365}>≤ 365 dias</option>
+              </select>
+            </label>
+
+            <label className="space-y-1 text-xs">
+              <span className="text-slate-600 dark:text-slate-300 font-medium block">CNAE Principal (opcional)</span>
+              <input
+                type="text"
+                value={discoveryCnae}
+                onChange={(e) => setDiscoveryCnae(e.target.value)}
+                placeholder="Ex.: 5611201 (7 dígitos)"
+                className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-[#0c0e14] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={discoveryOnlyPhone}
+                onChange={(e) => setDiscoveryOnlyPhone(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <span>Apenas com telefone</span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleFetchRealRecentCompanies(false)}
+                disabled={discovering}
+                className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50"
+              >
+                {discovering ? 'Buscando...' : 'Buscar Próximo Lote'}
+              </button>
+              <button
+                onClick={() => void handleFetchRealRecentCompanies(true)}
+                disabled={discovering}
+                className="px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.1] transition cursor-pointer disabled:opacity-50"
+                title="Reiniciar posição do cursor na base pública"
+              >
+                Reiniciar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {discoveryError && (
+        <div className="p-3.5 rounded-xl text-xs font-medium bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/40 text-red-800 dark:text-red-300 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{discoveryError}</span>
+        </div>
+      )}
 
       {exportFeedback && (
         <div className="p-3.5 rounded-xl text-xs font-medium bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-800 dark:text-blue-300">
@@ -516,7 +685,7 @@ export default function RecentCompaniesDashboard({
             Nenhuma empresa real cadastrada ainda
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Use &quot;Consultar / Importar CNPJs&quot; para consultar CNPJs reais via BrasilAPI / MinhaReceita e IBGE.
+            Clique em &quot;Buscar Recentes&quot; para consultar empresas ativas reais da Receita Federal (MinhaReceita) ou use &quot;Consultar / Importar CNPJs&quot;.
           </p>
         </div>
       )}

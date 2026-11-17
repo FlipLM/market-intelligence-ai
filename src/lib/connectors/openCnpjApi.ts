@@ -26,6 +26,7 @@ export interface BrasilApiCnpjResponse {
   complemento?: string;
   bairro?: string;
   municipio?: string;
+  codigo_municipio_ibge?: number;
   uf?: string;
   cep?: string;
   ddd_telefone_1?: string;
@@ -461,8 +462,16 @@ export function parseBrasilApiResponseToLead(
     uf: ufField,
     municipio: municipioField,
     codigoIbgeMunicipio:
-      ibgeEnrichment?.codigoIbgeMunicipio ??
-      desconhecido<number>('Código IBGE do município não consultado', consultadoEm),
+      ibgeEnrichment?.codigoIbgeMunicipio?.status === 'verificado'
+        ? ibgeEnrichment.codigoIbgeMunicipio
+        : typeof apiData.codigo_municipio_ibge === 'number' && !Number.isNaN(apiData.codigo_municipio_ibge)
+        ? verificado({
+            valor: apiData.codigo_municipio_ibge,
+            fonte,
+            url_ou_api: urlApi,
+            consultado_em: consultadoEm,
+          })
+        : desconhecido<number>('Código IBGE do município não consultado', consultadoEm),
     bairroRegiao: bairroField,
     logradouro: logradouroField,
     numero: numeroField,
@@ -618,4 +627,244 @@ export async function fetchCnpjsBatchFromOpenApi(
   }
 
   return { imported, failed };
+}
+
+export interface MinhaReceitaDiscoveryOptions {
+  uf: string;
+  maxAgeDays?: number;
+  maxPages?: number;
+  maxResults?: number;
+  cnaeFiscal?: string;
+  municipio?: string;
+  cursor?: string;
+  onlyWithPhone?: boolean;
+  existingLeadsInBase?: RecentCompanyLead[];
+}
+
+export interface MinhaReceitaDiscoveryResult {
+  leads: RecentCompanyLead[];
+  scannedRows: number;
+  activeRows: number;
+  matchedRecentRows: number;
+  pagesFetched: number;
+  nextCursor?: string;
+  usedCursorStart?: string;
+  exhausted: boolean;
+  datasetCompetencia: ProvenanceField<string>;
+  warning?: string;
+}
+
+interface MinhaReceitaPaginatedResponse {
+  data?: BrasilApiCnpjResponse[];
+  cursor?: string | null;
+  message?: string;
+}
+
+const DEFAULT_SHARD_START_CURSOR = '5000000';
+
+export function filterRecentActiveApiRows(
+  rows: BrasilApiCnpjResponse[],
+  maxAgeDays: number,
+  options?: { onlyWithPhone?: boolean; referenceNowMs?: number }
+): BrasilApiCnpjResponse[] {
+  const nowMs = options?.referenceNowMs ?? Date.now();
+  const onlyWithPhone = Boolean(options?.onlyWithPhone);
+
+  return rows.filter((row) => {
+    if (!row || !row.cnpj) return false;
+    if ((row.descricao_situacao_cadastral || '').toUpperCase() !== 'ATIVA') return false;
+    if (!row.data_inicio_atividade) return false;
+
+    const openingMs = Date.parse(`${row.data_inicio_atividade}T00:00:00Z`);
+    if (Number.isNaN(openingMs)) return false;
+
+    const ageDays = Math.floor((nowMs - openingMs) / (1000 * 60 * 60 * 24));
+    if (ageDays < 0 || ageDays > maxAgeDays) return false;
+
+    if (onlyWithPhone) {
+      const hasPhone =
+        (row.ddd_telefone_1 && row.ddd_telefone_1.replace(/\D/g, '').length >= 10) ||
+        (row.ddd_telefone_2 && row.ddd_telefone_2.replace(/\D/g, '').length >= 10);
+      if (!hasPhone) return false;
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Busca empresas REAIS abertas recentemente via busca paginada oficial do MinhaReceita (Receita Federal).
+ * Nao inventa nem gera registros sinteticos: le blocos reais de ate 1024 estabelecimentos por pagina,
+ * filtra localmente empresas ATIVAS dentro da janela de dias solicitada e aplica proveniencia em todos os campos.
+ */
+export async function discoverRecentCompaniesFromMinhaReceita(
+  options: MinhaReceitaDiscoveryOptions
+): Promise<MinhaReceitaDiscoveryResult> {
+  const uf = options.uf.trim().toUpperCase().slice(0, 2);
+  if (!/^[A-Z]{2}$/.test(uf)) {
+    throw new Error('UF inválida. Informe a sigla de 2 letras (ex.: DF, SP, MG).');
+  }
+
+  const maxAgeDays = Math.min(730, Math.max(7, options.maxAgeDays ?? 180));
+  const maxPages = Math.min(5, Math.max(1, options.maxPages ?? 3));
+  const maxResults = Math.min(250, Math.max(10, options.maxResults ?? 120));
+  const cnaeDigits = (options.cnaeFiscal || '').replace(/\D/g, '');
+  const municipioDigits = (options.municipio || '').replace(/\D/g, '');
+
+  const updatedUrl = 'https://minhareceita.org/updated';
+  const updatedRes = await fetchJsonWithRetryAndCache<{ message?: string }>(updatedUrl, {
+    ttlMs: 6 * 60 * 60 * 1000,
+    maxRetries: 2,
+    timeoutMs: 6000,
+  });
+
+  const datasetCompetencia: ProvenanceField<string> =
+    updatedRes.ok && updatedRes.data?.message
+      ? verificado({
+          valor: updatedRes.data.message,
+          fonte: 'MinhaReceita / Receita Federal (/updated)',
+          url_ou_api: updatedUrl,
+          consultado_em: updatedRes.fetchedAt,
+        })
+      : desconhecido<string>('Competência da base MinhaReceita não informada', updatedRes.fetchedAt);
+
+  // Para busca ampla por UF sem CNAE/município, cursor 5000000 acessa faixas com alta densidade de CNPJs 2026
+  const initialCursor =
+    options.cursor !== undefined
+      ? options.cursor
+      : !cnaeDigits && !municipioDigits
+      ? DEFAULT_SHARD_START_CURSOR
+      : undefined;
+
+  let currentCursor = initialCursor;
+  let scannedRows = 0;
+  let activeRows = 0;
+  let pagesFetched = 0;
+  let exhausted = false;
+  let warning: string | undefined;
+
+  const matchedItems: Array<{
+    raw: BrasilApiCnpjResponse;
+    pageUrl: string;
+    fetchedAt: string;
+  }> = [];
+  const seenCnpjs = new Set<string>();
+
+  for (let page = 1; page <= maxPages; page++) {
+    const params = new URLSearchParams();
+    params.set('uf', uf);
+    params.set('limit', '1024');
+    if (cnaeDigits.length === 7) {
+      params.set('cnae_fiscal', cnaeDigits);
+    }
+    if (municipioDigits.length > 0) {
+      params.set('municipio', municipioDigits);
+    }
+    if (currentCursor) {
+      params.set('cursor', currentCursor);
+    }
+
+    const pageUrl = `https://minhareceita.org/?${params.toString()}`;
+    const res = await fetchJsonWithRetryAndCache<MinhaReceitaPaginatedResponse>(pageUrl, {
+      ttlMs: 15 * 60 * 1000,
+      maxRetries: 2,
+      timeoutMs: 15000,
+    });
+
+    if (!res.ok || !res.data) {
+      warning =
+        res.status === 429
+          ? 'A instância pública do MinhaReceita limitou a consulta (HTTP 429 - busca custosa). Tente sem filtro de CNAE ou aguarde 1 minuto.'
+          : `Falha parcial ao consultar MinhaReceita (${res.error || 'erro de rede'}).`;
+      break;
+    }
+
+    pagesFetched++;
+    const rows = Array.isArray(res.data.data) ? res.data.data : [];
+    scannedRows += rows.length;
+    activeRows += rows.filter((r) => (r.descricao_situacao_cadastral || '').toUpperCase() === 'ATIVA').length;
+
+    const recentFiltered = filterRecentActiveApiRows(rows, maxAgeDays, {
+      onlyWithPhone: options.onlyWithPhone,
+    });
+
+    for (const row of recentFiltered) {
+      const clean = row.cnpj.replace(/\D/g, '');
+      if (seenCnpjs.has(clean)) continue;
+      seenCnpjs.add(clean);
+      matchedItems.push({ raw: row, pageUrl, fetchedAt: res.fetchedAt });
+    }
+
+    const next = res.data.cursor ?? undefined;
+    if (!next || rows.length === 0) {
+      currentCursor = undefined;
+      exhausted = true;
+      break;
+    }
+    currentCursor = next;
+
+    if (matchedItems.length >= maxResults) {
+      break;
+    }
+  }
+
+  matchedItems.sort((a, b) =>
+    (b.raw.data_inicio_atividade || '').localeCompare(a.raw.data_inicio_atividade || '')
+  );
+  const selected = matchedItems.slice(0, maxResults);
+
+  // Enriquecimento IBGE deduplicado por município único (rápido e em cache)
+  const municipioCache = new Map<
+    string,
+    { municipioOficial: ProvenanceField<string>; codigoIbge: ProvenanceField<number> }
+  >();
+  for (const item of selected) {
+    const mun = (item.raw.municipio || '').trim();
+    const rowUf = (item.raw.uf || uf).trim().toUpperCase();
+    const key = `${rowUf}:${mun.toUpperCase()}`;
+    if (mun && !municipioCache.has(key) && municipioCache.size < 15) {
+      municipioCache.set(key, await fetchIbgeMunicipioInfo(rowUf, mun));
+    }
+  }
+
+  const combinedContext = [...(options.existingLeadsInBase || [])];
+  const leads: RecentCompanyLead[] = [];
+
+  for (const item of selected) {
+    const mun = (item.raw.municipio || '').trim();
+    const rowUf = (item.raw.uf || uf).trim().toUpperCase();
+    const munInfo = municipioCache.get(`${rowUf}:${mun.toUpperCase()}`);
+
+    const lead = parseBrasilApiResponseToLead(
+      item.raw,
+      {
+        fonte: 'Receita Federal via MinhaReceita (busca paginada)',
+        url_ou_api: item.pageUrl,
+        consultado_em: item.fetchedAt,
+      },
+      munInfo
+        ? {
+            municipioIbge: munInfo.municipioOficial,
+            codigoIbgeMunicipio: munInfo.codigoIbge,
+          }
+        : undefined,
+      combinedContext
+    );
+
+    leads.push(lead);
+    combinedContext.push(lead);
+  }
+
+  return {
+    leads,
+    scannedRows,
+    activeRows,
+    matchedRecentRows: matchedItems.length,
+    pagesFetched,
+    nextCursor: exhausted ? undefined : currentCursor,
+    usedCursorStart: initialCursor,
+    exhausted,
+    datasetCompetencia,
+    warning,
+  };
 }
