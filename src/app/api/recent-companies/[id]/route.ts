@@ -29,6 +29,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: updated });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    const status = msg.includes('não contatar') || msg.includes('Aguardar') || msg.includes('Limite') ? 400 : 500;
+    return NextResponse.json({ success: false, error: msg }, { status });
   }
 }

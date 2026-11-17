@@ -428,10 +428,13 @@ export default function RecentCompaniesDashboard({
                   </div>
 
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-                    Sistema:{' '}
-                    {company.diagnostico.possuiSistema.status === 'desconhecido'
-                      ? 'Não verificado'
-                      : formatProvenanceText(company.diagnostico.possuiSistema)}
+                    {company.abordagem.naoContatar
+                      ? 'Não Contatar'
+                      : `Sistema: ${
+                          company.diagnostico.possuiSistema.status === 'desconhecido'
+                            ? 'Não verificado'
+                            : formatProvenanceText(company.diagnostico.possuiSistema)
+                        }`}
                   </span>
                 </div>
 
@@ -546,6 +549,7 @@ export default function RecentCompaniesDashboard({
         key={activeWhatsAppLead?.id ?? 'closed'}
         company={activeWhatsAppLead}
         onClose={() => setActiveWhatsAppLead(null)}
+        onCompanyUpdated={handleCompanyUpdated}
       />
 
       <RecentCompanyDetailsModal

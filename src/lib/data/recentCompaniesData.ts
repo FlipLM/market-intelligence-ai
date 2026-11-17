@@ -7,6 +7,7 @@ import {
 } from '@/types/recentCompanies';
 import { reclassifyAllContacts } from '@/lib/connectors/contactClassifier';
 import { verificado, desconhecido } from '@/types/provenance';
+import { evaluateFollowupEligibility } from '@/lib/outreachMessage';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const COMPANIES_FILE = path.join(DATA_DIR, 'recent_companies.json');
@@ -210,10 +211,17 @@ export function updateRecentCompanyManualFields(
 
   const abordagem = { ...current.abordagem };
   if (updates.registrarPrimeiroContato) {
+    if (abordagem.naoContatar || abordagem.statusContato === 'recusou') {
+      throw new Error('Contato bloqueado na lista "não contatar".');
+    }
     abordagem.statusContato = 'primeiro_contato_enviado';
     abordagem.primeiroContatoEm = abordagem.primeiroContatoEm || now;
   }
   if (updates.registrarFollowup) {
+    const eligibility = evaluateFollowupEligibility(current);
+    if (!eligibility.allowed) {
+      throw new Error(eligibility.reason);
+    }
     abordagem.statusContato = 'followup_enviado';
     abordagem.followupEnviadoEm = now;
   }
