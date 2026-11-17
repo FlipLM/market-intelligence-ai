@@ -1,17 +1,17 @@
+import { ProvenanceField, ProvenanceStatus } from './provenance';
+
 /**
- * Market Intelligence AI - Contratos de Tipos e Interfaces
+ * Market Intelligence AI - Contratos de Tipos e Interfaces com Proveniência
  */
 
-export type MetricConfidence = 'baixa' | 'media' | 'alta' | 'comprovada';
-
-export type EvidenceOrigin = 'observado' | 'estimado' | 'hipotese' | 'inferencia_ia';
+export type MetricConfidence = 'baixa' | 'media' | 'alta';
 
 export interface DataEvidence {
   id: string;
   source: string;
   sourceUrl?: string;
   collectedAt: string;
-  origin: EvidenceOrigin;
+  status: ProvenanceStatus;
   metricName: string;
   value: string | number;
   notes: string;
@@ -19,201 +19,201 @@ export interface DataEvidence {
 
 export interface NicheBasicInfo {
   id: string;
-  name: string;
-  segment: string;
-  subsegment?: string;
-  cnaes: string[];
-  description: string;
+  name: ProvenanceField<string>;
+  segment: ProvenanceField<string>;
+  subsegment: ProvenanceField<string>;
+  cnaes: ProvenanceField<string[]>;
+  cnaeDescricao: ProvenanceField<string>;
+  description: ProvenanceField<string>;
   geographicScope: {
-    country: string;
-    state?: string;
-    city?: string;
+    country: ProvenanceField<string>;
+    state: ProvenanceField<string>;
+    city: ProvenanceField<string>;
   };
 }
 
+export interface NicheBaseAggregation {
+  totalEmpresasColetadas: ProvenanceField<number>;
+  abertasUltimos30Dias: ProvenanceField<number>;
+  abertasUltimos90Dias: ProvenanceField<number>;
+  abertasUltimos365Dias: ProvenanceField<number>;
+  taxaAberturaMensal: ProvenanceField<number>;
+  concentracaoPorBairro: ProvenanceField<Array<{ bairro: string; quantidade: number }>>;
+  distribuicaoPorPorte: ProvenanceField<Array<{ porte: string; quantidade: number }>>;
+}
+
+export interface TrendingQueryItem {
+  term: string;
+  trend: 'alta' | 'estavel' | 'queda';
+  intent: 'comercial' | 'informacional' | 'tecnologica';
+}
+
 export interface DemandAnalysis {
-  overallDemandScore: number; // 0-100
-  serviceDemandVsSoftwareDemand: {
-    serviceSearchVolumeEstimated: string;
-    softwareSearchVolumeEstimated: string;
-    ratioExplanation: string;
-  };
-  trendingQueries: Array<{
-    term: string;
-    trend: 'alta' | 'estavel' | 'queda';
-    intent: 'comercial' | 'informacional' | 'tecnologica';
-  }>;
-  operationalPainMentions: string[];
-  digitalizationNeedLevel: 'baixa' | 'media' | 'alta' | 'critica';
-  seasonality: string;
+  overallDemandScore: ProvenanceField<number>;
+  serviceSearchVolume: ProvenanceField<string>;
+  softwareSearchVolume: ProvenanceField<string>;
+  ratioExplanation: ProvenanceField<string>;
+  trendingQueries: ProvenanceField<TrendingQueryItem[]>;
+  operationalPainMentions: ProvenanceField<string[]>;
+  digitalizationNeedLevel: ProvenanceField<'baixa' | 'media' | 'alta' | 'critica'>;
+  seasonality: ProvenanceField<string>;
   evidences: DataEvidence[];
 }
 
 export interface PaidTrafficAnalysis {
-  hasPaidAdsIdentified: boolean;
-  advertiserCountEstimate: string;
-  estimatedAverageCpc: number; // em BRL
-  cpcRange: { min: number; max: number };
-  auctionCompetition: 'baixa' | 'media' | 'alta' | 'feroz';
-  observedKeywords: Array<{
-    keyword: string;
-    estimatedCpc: number;
-    competition: string;
-    intent: string;
-  }>;
-  adCopyInsights: Array<{
-    headline: string;
-    valueProposition: string;
-    callToAction: string;
-    targetAudience: string;
-  }>;
-  landingPageConversionTactics: string[];
-  acquisitionDifficulty: 'facil' | 'moderada' | 'dificil' | 'desafiadora';
+  hasPaidAdsIdentified: ProvenanceField<boolean>;
+  advertiserCount: ProvenanceField<string>;
+  averageCpc: ProvenanceField<number>;
+  cpcRange: ProvenanceField<{ min: number; max: number }>;
+  auctionCompetition: ProvenanceField<'baixa' | 'media' | 'alta' | 'feroz'>;
+  observedKeywords: ProvenanceField<
+    Array<{
+      keyword: string;
+      estimatedCpc: number;
+      competition: string;
+      intent: string;
+    }>
+  >;
+  acquisitionDifficulty: ProvenanceField<'facil' | 'moderada' | 'dificil' | 'desafiadora'>;
   evidences: DataEvidence[];
 }
 
+export interface CompetitorItem {
+  name: string;
+  type: 'saas_especifico' | 'erp_generico' | 'agencia' | 'planilhas_manuais';
+  pricingModel: string;
+  strengths: string[];
+  weaknesses: string[];
+}
+
 export interface CompetitiveAnalysis {
-  marketSaturation: 'subatendido' | 'moderado' | 'saturado' | 'dominado_por_legados';
-  mainCompetitors: Array<{
-    name: string;
-    type: 'saas_especifico' | 'erp_generico' | 'agencia' | 'planilhas_manuais';
-    pricingModel: string;
-    strengths: string[];
-    weaknesses: string[];
-    commonComplaints: string[];
-  }>;
-  entryBarriers: string[];
-  differentiationAngle: string;
-  opportunityType: 'substituicao' | 'complementacao_integracao' | 'inovacao_nicho';
+  marketSaturation: ProvenanceField<'subatendido' | 'moderado' | 'saturado' | 'dominado_por_legados'>;
+  mainCompetitors: ProvenanceField<CompetitorItem[]>;
+  entryBarriers: ProvenanceField<string[]>;
+  differentiationAngle: ProvenanceField<string>;
+  opportunityType: ProvenanceField<'substituicao' | 'complementacao_integracao' | 'inovacao_nicho'>;
   evidences: DataEvidence[];
 }
 
 export interface SoftwareOpportunity {
   id: string;
-  title: string;
-  operationalProblem: string;
-  evidence: string;
-  digitalSolution: string;
-  expectedBenefit: string;
-  willingnessToPayHypothesis: 'baixa' | 'media' | 'alta' | 'muito_alta';
-  typicalDevelopmentDays: number;
-  complexity: 'baixa' | 'media' | 'alta';
+  isAiHypothesis: boolean;
+  title: ProvenanceField<string>;
+  operationalProblem: ProvenanceField<string>;
+  evidence: ProvenanceField<string>;
+  digitalSolution: ProvenanceField<string>;
+  expectedBenefit: ProvenanceField<string>;
+  typicalDevelopmentDays: ProvenanceField<number>;
+  complexity: ProvenanceField<'baixa' | 'media' | 'alta'>;
 }
 
 export interface CommercialViability {
-  totalEligibleCompanies: number;
-  accessibleDecisionMakers: 'muito_dificil' | 'moderado' | 'acessivel' | 'direto';
-  averageCompanyRevenueEstimate: string;
+  totalEligibleCompanies: ProvenanceField<number>;
+  accessibleDecisionMakers: ProvenanceField<'muito_dificil' | 'moderado' | 'acessivel' | 'direto'>;
+  averageCompanyRevenue: ProvenanceField<string>;
   recommendedPricing: {
-    implementationSetupMin: number;
-    implementationSetupMax: number;
-    monthlyFeeMin: number;
-    monthlyFeeMax: number;
+    implementationSetupMin: ProvenanceField<number>;
+    implementationSetupMax: ProvenanceField<number>;
+    monthlyFeeMin: ProvenanceField<number>;
+    monthlyFeeMax: ProvenanceField<number>;
   };
-  reusabilityPotential: 'projeto_unico' | 'customizavel' | 'saas_escalavel';
-  estimatedSalesCycleDays: number;
-  regulatoryRisks: string[];
+  reusabilityPotential: ProvenanceField<'projeto_unico' | 'customizavel' | 'saas_escalavel'>;
+  estimatedSalesCycleDays: ProvenanceField<number>;
+  regulatoryRisks: ProvenanceField<string[]>;
   evidences: DataEvidence[];
 }
 
 export interface ScoringWeights {
-  demandaComprovada: number;      // Padrão 0.20
-  problemasOperacionais: number;  // Padrão 0.15
-  capacidadeInvestimento: number; // Padrão 0.15
-  facilidadeProspeccao: number;   // Padrão 0.15
-  potencialRecorrencia: number;   // Padrão 0.10
-  oportunidadeCompetitiva: number;// Padrão 0.10
-  viabilidadeTecnica: number;     // Padrão 0.10
-  qualidadeEvidencias: number;    // Padrão 0.05
+  demandaComprovada: number;
+  problemasOperacionais: number;
+  capacidadeInvestimento: number;
+  facilidadeProspeccao: number;
+  potencialRecorrencia: number;
+  oportunidadeCompetitiva: number;
+  viabilidadeTecnica: number;
+  qualidadeEvidencias: number;
 }
 
 export interface ScoreItem {
+  key: keyof ScoringWeights;
   name: string;
   weight: number;
-  rawScore: number; // 0 a 100
-  weightedScore: number;
-  confidence: MetricConfidence;
+  rawScore: number | null;
+  weightedScore: number | null;
+  status: ProvenanceStatus;
+  fonte: string;
+  consultado_em: string | null;
   justification: string;
 }
 
 export interface NicheScoreBreakdown {
-  finalScore: number; // 0-100
-  confidenceIndex: number; // 0-100%
-  commercialPotential: 'baixo' | 'moderado' | 'alto' | 'excepcional';
-  entryEase: 'dificil' | 'moderada' | 'facil';
-  executionRisk: 'baixo' | 'moderado' | 'alto';
-  digitalMaturity: 'rudimentar' | 'em_transicao' | 'madura';
-  competitiveIntensity: 'baixa' | 'media' | 'alta';
+  finalScore: number | null;
+  confidenceLevel: MetricConfidence;
+  confidenceFraction: number;
+  evidencedCriteriaCount: number;
+  totalCriteriaCount: number;
+  commercialPotential: ProvenanceField<'baixo' | 'moderado' | 'alto' | 'excepcional'>;
+  entryEase: ProvenanceField<'dificil' | 'moderada' | 'facil'>;
+  executionRisk: ProvenanceField<'baixo' | 'moderado' | 'alto'>;
   items: ScoreItem[];
 }
 
-export interface FinancialScenario {
-  name: 'Conservador' | 'Base' | 'Otimista';
+export interface HypotheticalAssumptions {
   prospectableCompanies: number;
-  effectiveContactRate: number; // %
-  responseRate: number; // %
-  meetingConversionRate: number; // %
-  closingRate: number; // %
-  dealsClosed: number;
+  effectiveContactRate: number;
+  responseRate: number;
+  meetingConversionRate: number;
+  closingRate: number;
   avgSetupFee: number;
   avgMonthlyFee: number;
+  estimatedCac: number;
+}
+
+export interface FinancialScenario {
+  name: 'Conservador' | 'Base' | 'Otimista' | 'Personalizado';
+  isHypotheticalScenario: true;
+  disclaimer: string;
+  assumptions: HypotheticalAssumptions;
+  dealsClosed: number;
   upfrontRevenue: number;
   firstYearArr: number;
-  estimatedCac: number;
-  paybackMonths: number;
+  paybackMonths: number | null;
 }
 
 export interface TechAuditAnalysis {
-  verdict: 'altamente_viavel' | 'viavel_com_escopo_fechado' | 'alto_suporte_risco' | 'nao_recomendado';
-  verdictTitle: string;
-  verdictReason: string;
-  devEffortVsRoiScore: number; // 0 a 100
-  architectureComplexity: 'baixa' | 'media' | 'alta' | 'complexa';
-  recommendedTechStack: {
+  isAiHypothesis: true;
+  disclaimer: string;
+  verdict: ProvenanceField<'altamente_viavel' | 'viavel_com_escopo_fechado' | 'alto_suporte_risco' | 'nao_recomendado'>;
+  verdictTitle: ProvenanceField<string>;
+  verdictReason: ProvenanceField<string>;
+  architectureComplexity: ProvenanceField<'baixa' | 'media' | 'alta' | 'complexa'>;
+  recommendedTechStack: ProvenanceField<{
     frontend: string;
     backendAndDb: string;
     authAndSecurity: string;
     integrations: string[];
-  };
-  reusabilityPercentageEstimated: number; // ex: 80%
-  pitfallsToAvoid: string[];
-  maintenanceBurdenLevel: 'baixo' | 'moderado' | 'alto';
-  mvpDeliveryTargetDays: number;
+  }>;
+  pitfallsToAvoid: ProvenanceField<string[]>;
 }
 
 export interface OutreachCopyBriefing {
-  targetPersona: {
+  disclaimer: string;
+  templatePadrao: string;
+  regraFollowup: string;
+  targetPersona: ProvenanceField<{
     role: string;
     dailyFrustrations: string[];
     buyingTriggers: string[];
-  };
-  whatsAppCadence: Array<{
-    step: string;
-    timing: string;
-    messageText: string;
-    purpose: string;
-  }>;
-  coldCallScript: {
-    gatekeeperPitch: string;
-    decisionMakerPitch: string;
-  };
-  spinQuestions: {
-    situation: string;
-    problem: string;
-    implication: string;
-    needPayoff: string;
-  };
-  objectionsAndRebuttals: Array<{
-    objection: string;
-    rebuttal: string;
   }>;
 }
 
 export interface NicheReport {
   id: string;
+  recordStatus: 'ativo' | 'descartado_sintetico';
   createdAt: string;
   updatedAt: string;
   basicInfo: NicheBasicInfo;
+  baseAggregation: NicheBaseAggregation;
   demand: DemandAnalysis;
   paidTraffic: PaidTrafficAnalysis;
   competition: CompetitiveAnalysis;
@@ -221,13 +221,22 @@ export interface NicheReport {
   commercialViability: CommercialViability;
   scoring: NicheScoreBreakdown;
   financialScenarios: FinancialScenario[];
-  whyEnterArguments: string[];
-  whyNotEnterRisks: string[];
-  decisionRecommendation: string;
-  recommendedAction: 'avancar_imediatamente' | 'testar_com_piloto' | 'monitorar' | 'descartar';
+  whyEnterArguments: ProvenanceField<string[]>;
+  whyNotEnterRisks: ProvenanceField<string[]>;
+  decisionRecommendation: ProvenanceField<string>;
+  recommendedAction: 'avancar_imediatamente' | 'testar_com_piloto' | 'monitorar' | 'pesquisa_manual_necessaria';
   dataSufficiency: 'insuficiente' | 'parcial' | 'completa';
   techAudit?: TechAuditAnalysis;
   outreachCopy?: OutreachCopyBriefing;
+}
+
+export interface DiscardedSyntheticNicheRecord {
+  id: string;
+  name: string;
+  originalCreatedAt: string;
+  recordStatus: 'descartado_sintetico';
+  discardedAt: string;
+  reason: string;
 }
 
 export interface CommercialFeedbackHistory {
@@ -249,17 +258,15 @@ export interface CommercialFeedbackHistory {
 
 export interface ProspectorHandoff {
   nicheId: string;
-  nicheName: string;
-  googleMapsQuery: string;
-  targetRegion: string;
+  nicheName: ProvenanceField<string>;
+  googleMapsQuery: ProvenanceField<string>;
+  targetRegion: ProvenanceField<string>;
   idealCustomerProfile: {
-    description: string;
-    companySize: string;
-    hasWebsitePreferred: boolean;
+    description: ProvenanceField<string>;
+    companySize: ProvenanceField<string>;
     mustHaveCellPhone: boolean;
   };
   suggestedPitchWhatsApp: string;
   diagnosticQuestions: string[];
-  offerValueProposition: string;
+  offerValueProposition: ProvenanceField<string>;
 }
-

@@ -1,4 +1,4 @@
-import { NicheReport } from '@/types/market';
+import { NicheReport, NicheBaseAggregation } from '@/types/market';
 import { getScoringWeights, saveNiche } from '../db';
 import { runNicheDiscoveryAgent, DiscoveryInput } from './nicheDiscoveryAgent';
 import { runDemandIntelligenceAgent } from './demandIntelligenceAgent';
@@ -11,80 +11,59 @@ import { generateFinancialScenarios } from '../simulator';
 import { runDecisionAnalystAgent } from './decisionAnalystAgent';
 import { runTechAuditorAgent } from './techAuditorAgent';
 import { runOutreachCopywriterAgent } from './outreachCopywriterAgent';
+import { desconhecido } from '@/types/provenance';
 
-export interface ResearchProgressLog {
-  step: number;
-  agentName: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'error';
-  message: string;
-  timestamp: string;
+export function emptyBaseAggregation(): NicheBaseAggregation {
+  const fonte = 'Sem CNPJs reais coletados para este CNAE na base local';
+  return {
+    totalEmpresasColetadas: desconhecido(fonte),
+    abertasUltimos30Dias: desconhecido(fonte),
+    abertasUltimos90Dias: desconhecido(fonte),
+    abertasUltimos365Dias: desconhecido(fonte),
+    taxaAberturaMensal: desconhecido(fonte),
+    concentracaoPorBairro: desconhecido(fonte),
+    distribuicaoPorPorte: desconhecido(fonte),
+  };
 }
 
 export function executeNicheResearch(input: DiscoveryInput): NicheReport {
   const now = new Date().toISOString();
   const weights = getScoringWeights();
 
-  // Agente 1: Descoberta de Nichos
   const basicInfo = runNicheDiscoveryAgent(input);
+  const demand = runDemandIntelligenceAgent();
+  const paidTraffic = runPaidTrafficAgent();
+  const competition = runCompetitiveIntelligenceAgent();
+  const opportunities = runSoftwareOpportunityAgent();
+  const commercialViability = runCommercialViabilityAgent();
 
-  // Agente 2: Inteligência de Demanda
-  const demand = runDemandIntelligenceAgent(basicInfo.name);
+  const scoring = calculateNicheScore(
+    {
+      demand,
+      paidTraffic,
+      competition,
+      viability: commercialViability,
+      opportunities,
+    },
+    weights
+  );
 
-  // Agente 3: Inteligência de Tráfego Pago
-  const paidTraffic = runPaidTrafficAgent(basicInfo.name);
-
-  // Agente 4: Inteligência Competitiva
-  const competition = runCompetitiveIntelligenceAgent(basicInfo.name);
-
-  // Agente 5: Problemas Operacionais & Oportunidades de Software
-  const opportunities = runSoftwareOpportunityAgent(basicInfo.name);
-
-  // Agente 6: Viabilidade Comercial
-  const commercialViability = runCommercialViabilityAgent(basicInfo.name, input.state);
-
-  // Sistema de Pontuação e Classificação Multicritério
-  const scoring = calculateNicheScore({
-    demand,
-    paidTraffic,
-    competition,
-    viability: commercialViability,
-    opportunities
-  }, weights);
-
-  // Simulador de Cenários Financeiros (Conservador, Base, Otimista)
-  const financialScenarios = generateFinancialScenarios(commercialViability);
-
-  // Agente 7: Analista de Decisão & Síntese
+  const financialScenarios = generateFinancialScenarios();
   const decision = runDecisionAnalystAgent({
     basicInfo,
-    demand,
-    paidTraffic,
-    competition,
-    opportunities,
     viability: commercialViability,
-    scoring
+    scoring,
   });
-
-  // Agente 8: Auditor Técnico de TI & Engenharia de Software
-  const techAudit = runTechAuditorAgent({
-    basicInfo,
-    opportunities,
-    viability: commercialViability,
-    competition
-  });
-
-  // Agente 9: Estrategista de Abordagem & Copywriter B2B
-  const outreachCopy = runOutreachCopywriterAgent({
-    basicInfo,
-    opportunities,
-    viability: commercialViability
-  });
+  const techAudit = runTechAuditorAgent();
+  const outreachCopy = runOutreachCopywriterAgent();
 
   const report: NicheReport = {
     id: basicInfo.id,
+    recordStatus: 'ativo',
     createdAt: now,
     updatedAt: now,
     basicInfo,
+    baseAggregation: emptyBaseAggregation(),
     demand,
     paidTraffic,
     competition,
@@ -98,7 +77,7 @@ export function executeNicheResearch(input: DiscoveryInput): NicheReport {
     recommendedAction: decision.recommendedAction,
     dataSufficiency: decision.dataSufficiency,
     techAudit,
-    outreachCopy
+    outreachCopy,
   };
 
   saveNiche(report);

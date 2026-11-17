@@ -1,44 +1,46 @@
 import { NicheReport, ProspectorHandoff } from '@/types/market';
+import { RecentCompanyLead } from '@/types/recentCompanies';
+import { formatProvenanceText, inferido } from '@/types/provenance';
 import fs from 'fs';
 import path from 'path';
 
 export function buildProspectorHandoff(niche: NicheReport): ProspectorHandoff {
-  const topOpp = niche.opportunities[0] || {
-    title: 'Automação de Processos',
-    operationalProblem: 'Controles manuais e planilhas',
-    expectedBenefit: 'Economia de tempo e eliminação de erros'
-  };
+  const state = formatProvenanceText(niche.basicInfo.geographicScope.state, '');
+  const city = formatProvenanceText(niche.basicInfo.geographicScope.city, '');
+  const nicheNameText = formatProvenanceText(niche.basicInfo.name, niche.id);
 
-  const region = niche.basicInfo.geographicScope.city
-    ? `${niche.basicInfo.geographicScope.city}, ${niche.basicInfo.geographicScope.state || 'Brasil'}`
-    : niche.basicInfo.geographicScope.state
-      ? `Estado de ${niche.basicInfo.geographicScope.state}`
-      : 'Brasil';
+  const region = city
+    ? `${city}${state ? `, ${state}` : ''}`
+    : state
+    ? `Estado de ${state}`
+    : 'Brasil';
 
-  const mapsQuery = `${niche.basicInfo.name} em ${region}`;
-
-  const pitchWhatsApp = `Olá! Notei a excelência do trabalho de vocês no segmento de ${niche.basicInfo.name}. Desenvolvemos recentemente uma solução específica para empresas do setor resolverem ${topOpp.operationalProblem.toLowerCase()}, gerando ${topOpp.expectedBenefit.toLowerCase()}. Teria 5 minutos para ver como isso funciona na prática?`;
-
-  const diagnosticQuestions = [
-    `Como sua equipe lida hoje com ${topOpp.operationalProblem}?`,
-    `Quanto tempo por semana é gasto manualmente em processos que poderiam ser automatizados?`,
-    `Vocês utilizam algum software que hoje deixa a desejar em suporte ou relatórios?`
-  ];
+  const mapsQuery = `${nicheNameText} em ${region}`;
+  const now = new Date().toISOString();
 
   return {
     nicheId: niche.id,
     nicheName: niche.basicInfo.name,
-    googleMapsQuery: mapsQuery,
-    targetRegion: region,
+    googleMapsQuery: inferido({
+      valor: mapsQuery,
+      fonte: 'Composição determinística de nome do nicho + escopo geográfico',
+      regra: 'nicheName + " em " + region',
+      consultado_em: now,
+    }),
+    targetRegion: inferido({
+      valor: region,
+      fonte: 'Composição determinística de escopo geográfico',
+      regra: 'city / state informados no nicho',
+      consultado_em: now,
+    }),
     idealCustomerProfile: {
-      description: `Empresas ativas no setor de ${niche.basicInfo.name}, preferencialmente com 3 a 30 colaboradores.`,
-      companySize: 'Pequena a Média Empresa',
-      hasWebsitePreferred: true,
+      description: niche.basicInfo.description,
+      companySize: niche.commercialViability.accessibleDecisionMakers,
       mustHaveCellPhone: true,
     },
-    suggestedPitchWhatsApp: pitchWhatsApp,
-    diagnosticQuestions,
-    offerValueProposition: `${topOpp.title} — ${topOpp.expectedBenefit}`
+    suggestedPitchWhatsApp: niche.outreachCopy?.templatePadrao || '',
+    diagnosticQuestions: [],
+    offerValueProposition: niche.decisionRecommendation,
   };
 }
 
@@ -51,28 +53,34 @@ export function exportHandoffToProspector(
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
     }
-    const safeName = handoff.nicheName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const nameStr = formatProvenanceText(handoff.nicheName, handoff.nicheId);
+    const safeName = nameStr.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const filePath = path.join(destDir, `target_niche_${safeName}.json`);
 
     fs.writeFileSync(filePath, JSON.stringify(handoff, null, 2), 'utf-8');
     return {
       success: true,
       message: `Nicho exportado com sucesso para o Prospector em: ${filePath}`,
-      destinationFile: filePath
+      destinationFile: filePath,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      message: `Não foi possível gravar diretamente no caminho ${prospectorPath}: ${err.message}`
+      message: `Não foi possível gravar diretamente no caminho ${prospectorPath}: ${msg}`,
     };
   }
 }
 
 export function exportRecentCompaniesToProspector(
-  companies: any[],
+  companies: RecentCompanyLead[],
   prospectorPath = 'G:\\Prospector'
 ): { success: boolean; message: string; destinationFile?: string } {
   try {
+    const eligible = companies.filter(
+      (c) => !c.abordagem.naoContatar && c.abordagem.statusContato !== 'recusou'
+    );
+
     const destDir = path.join(prospectorPath, 'scratch');
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
@@ -82,46 +90,41 @@ export function exportRecentCompaniesToProspector(
 
     const payload = {
       exportedAt: new Date().toISOString(),
-      totalLeads: companies.length,
-      source: 'Market Intelligence AI — Radar de Empresas Recém-Abertas (0-365 dias)',
-      region: 'Distrito Federal (Brasília e Regiões Administrativas)',
-      leads: companies.map(c => ({
+      totalLeads: eligible.length,
+      excludedDoNotContact: companies.length - eligible.length,
+      source: 'Market Intelligence AI — Leads com Proveniência Verificável',
+      leads: eligible.map((c) => ({
+        id: c.id,
         cnpj: c.cnpj,
         nomeFantasia: c.nomeFantasia,
         razaoSocial: c.razaoSocial,
+        situacaoCadastral: c.situacaoCadastral,
         dataAbertura: c.dataAbertura,
         diasCriacao: c.diasCriacao,
-        faixaTempo: c.faixaTempo,
-        setor: c.setorRotulo,
-        cnae: c.cnaePrincipal,
+        cnaePrincipal: c.cnaePrincipal,
         cnaeDescricao: c.cnaeDescricao,
+        municipio: c.municipio,
+        uf: c.uf,
         bairro: c.bairroRegiao,
-        endereco: c.enderecoCompleto,
         porte: c.porte,
-        capitalSocial: c.capitalSocial,
-        socio: c.socioPrincipal?.nome || '',
-        whatsapp: c.contato?.telefoneWhatsapp || '',
-        whatsappFormatado: c.contato?.telefoneFormatado || '',
-        email: c.contato?.email || '',
-        scoreSemSistema: c.diagnosticoTecnologico?.scoreSemSistema || 0,
-        estagioOperacional: c.diagnosticoTecnologico?.estagioOperacional || '',
-        dorOperacional: c.diagnosticoTecnologico?.gargaloUrgente || '',
-        solucaoSugerida: c.diagnosticoTecnologico?.solucaoImediataSugerida || '',
-        pitchWhatsApp: c.pitchAbordagemSugerido?.mensagemWhatsapp || '',
-      }))
+        naturezaJuridica: c.naturezaJuridica,
+        titularOuSocioPrincipal: c.titularOuSocioPrincipal,
+        contato: c.contato,
+        possuiSistema: c.diagnostico.possuiSistema,
+      })),
     };
 
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
     return {
       success: true,
-      message: `${companies.length} empresas recém-abertas exportadas com sucesso para o robô do Prospector em: ${filePath}`,
-      destinationFile: filePath
+      message: `${eligible.length} empresas exportadas com sucesso para o Prospector em: ${filePath}`,
+      destinationFile: filePath,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      message: `Erro ao exportar empresas recentes para o Prospector: ${err.message}`
+      message: `Erro ao exportar empresas recentes para o Prospector: ${msg}`,
     };
   }
 }
-

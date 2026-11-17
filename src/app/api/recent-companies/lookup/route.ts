@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchCnpjFromOpenApi } from '@/lib/connectors/openCnpjApi';
+import { upsertRecentCompany } from '@/lib/data/recentCompaniesData';
 
 export async function GET(request: Request) {
   try {
@@ -13,19 +14,25 @@ export async function GET(request: Request) {
     const lead = await fetchCnpjFromOpenApi(cnpj);
 
     if (!lead) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'CNPJ não encontrado na base pública da Receita Federal ou fora do ar.' 
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'CNPJ não encontrado na base pública da Receita Federal ou fora do ar.',
+        },
+        { status: 404 }
+      );
     }
+
+    upsertRecentCompany(lead);
 
     return NextResponse.json({
       success: true,
-      source: 'Receita Federal do Brasil via BrasilAPI / MinhaReceita',
+      source: lead.cnpj.fonte,
       data: lead,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
 
@@ -41,19 +48,24 @@ export async function POST(request: Request) {
     const lead = await fetchCnpjFromOpenApi(cnpj);
 
     if (!lead) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'CNPJ não localizado na Receita Federal via APIs abertas.' 
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'CNPJ não localizado na Receita Federal via APIs abertas.',
+        },
+        { status: 404 }
+      );
     }
+
+    upsertRecentCompany(lead);
 
     return NextResponse.json({
       success: true,
-      source: 'Receita Federal do Brasil via BrasilAPI / MinhaReceita',
+      source: lead.cnpj.fonte,
       data: lead,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
-

@@ -99,7 +99,7 @@ export default function RootLayout({
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
               <span>Market Intelligence B2B — Terminal de Decisão Comercial</span>
               <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-                Integrado a IBGE CEMPRE, Google Trends, Meta Ad Library & Receita Federal
+                Proveniência Explícita: BrasilAPI / MinhaReceita &amp; Base Auditada
               </span>
             </div>
           </footer>

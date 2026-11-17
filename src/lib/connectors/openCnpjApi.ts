@@ -1,26 +1,39 @@
-import { RecentCompanyLead, CompanySector } from '@/types/recentCompanies';
+import {
+  RecentCompanyLead,
+  CompanySector,
+  CompanyTimeWindow,
+  CnaeSecondaryItem,
+  QsaPartner,
+  PrincipalHolder,
+  TipoContato,
+} from '@/types/recentCompanies';
+import { verificado, inferido, desconhecido, ProvenanceField } from '@/types/provenance';
 
 export interface BrasilApiCnpjResponse {
   cnpj: string;
   razao_social: string;
   nome_fantasia?: string;
-  situacao_cadastral: number;
-  descricao_situacao_cadastral: string;
-  data_inicio_atividade: string; // "YYYY-MM-DD"
-  cnae_fiscal: number | string;
-  cnae_fiscal_descricao: string;
+  situacao_cadastral?: number;
+  descricao_situacao_cadastral?: string;
+  data_inicio_atividade?: string;
+  cnae_fiscal?: number | string;
+  cnae_fiscal_descricao?: string;
   cnaes_secundarios?: Array<{ codigo: number | string; descricao: string }>;
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  municipio: string;
-  uf: string;
-  cep: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
   ddd_telefone_1?: string;
   ddd_telefone_2?: string;
-  email?: string;
-  capital_social: number;
+  email?: string | null;
+  capital_social?: number;
   porte?: string;
+  descricao_porte?: string;
+  natureza_juridica?: string;
+  codigo_natureza_juridica?: number;
   qsa?: Array<{
     nome_socio: string;
     qualificacao_socio: string;
@@ -37,194 +50,391 @@ export function formatCnae(code: number | string): string {
   return `${digits.slice(0, 4)}-${digits.slice(4, 5)}/${digits.slice(5, 7)}`;
 }
 
-export function inferSectorFromCnae(cnae: string, text = ''): { sector: CompanySector; label: string } {
-  const normalized = (cnae + ' ' + text).toLowerCase();
+export function formatPhoneBr(raw?: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  const ddd = digits.slice(0, 2);
+  const num = digits.slice(2);
+  if (num.length === 9) {
+    return `(${ddd}) ${num.slice(0, 5)}-${num.slice(5)}`;
+  }
+  return `(${ddd}) ${num.slice(0, 4)}-${num.slice(4)}`;
+}
+
+export function inferSectorFromCnae(
+  cnae: string,
+  text = ''
+): { sector: CompanySector; label: string } {
+  const normalized = `${cnae} ${text}`.toLowerCase();
 
   if (
-    normalized.startsWith('56') ||
+    cnae.startsWith('56') ||
     normalized.includes('restaurante') ||
     normalized.includes('lanchonete') ||
     normalized.includes('alimento') ||
     normalized.includes('padaria') ||
-    normalized.includes('bebida') ||
-    normalized.includes('pizza') ||
-    normalized.includes('refeic') ||
-    normalized.includes('bar ')
+    normalized.includes('bebida')
   ) {
     return { sector: 'alimentacao', label: 'Alimentação & Gastronomia' };
   }
 
   if (
-    normalized.startsWith('45') ||
+    cnae.startsWith('45') ||
     normalized.includes('oficina') ||
     normalized.includes('mecanic') ||
-    normalized.includes('auto') ||
-    normalized.includes('veiculo') ||
-    normalized.includes('reboque') ||
-    normalized.includes('guincho')
+    normalized.includes('veiculo')
   ) {
-    return { sector: 'automotivo', label: 'Serviços Automotivos & Frotas' };
+    return { sector: 'automotivo', label: 'Serviços Automotivos' };
   }
 
   if (
-    normalized.startsWith('86') ||
-    normalized.startsWith('75') ||
-    normalized.startsWith('9602') ||
+    cnae.startsWith('86') ||
+    cnae.startsWith('75') ||
+    cnae.startsWith('9602') ||
     normalized.includes('odonto') ||
     normalized.includes('medico') ||
     normalized.includes('estetica') ||
-    normalized.includes('veterin') ||
-    normalized.includes('fisioter') ||
-    normalized.includes('saude')
+    normalized.includes('veterin')
   ) {
-    return { sector: 'saude_estetica', label: 'Saúde, Clínicas & Estética' };
+    return { sector: 'saude_estetica', label: 'Saúde & Estética' };
   }
 
   if (
-    normalized.startsWith('41') ||
-    normalized.startsWith('42') ||
-    normalized.startsWith('43') ||
+    cnae.startsWith('41') ||
+    cnae.startsWith('42') ||
+    cnae.startsWith('43') ||
     normalized.includes('construc') ||
     normalized.includes('obra') ||
-    normalized.includes('eletric') ||
-    normalized.includes('solar') ||
     normalized.includes('reforma')
   ) {
     return { sector: 'construcao_obras', label: 'Construção Civil & Reformas' };
   }
 
   if (
-    normalized.startsWith('69') ||
-    normalized.startsWith('70') ||
-    normalized.startsWith('71') ||
-    normalized.startsWith('74') ||
-    normalized.startsWith('81') ||
+    cnae.startsWith('69') ||
+    cnae.startsWith('70') ||
+    cnae.startsWith('71') ||
+    cnae.startsWith('74') ||
+    cnae.startsWith('81') ||
     normalized.includes('advoc') ||
     normalized.includes('contab') ||
-    normalized.includes('consult') ||
-    normalized.includes('limpeza') ||
-    normalized.includes('terceiriz')
+    normalized.includes('consult')
   ) {
     return { sector: 'servicos_b2b', label: 'Serviços Profissionais & B2B' };
   }
 
-  return { sector: 'comercio_varejo', label: 'Comércio Varejista & Conveniência' };
+  if (cnae.startsWith('47')) {
+    return { sector: 'comercio_varejo', label: 'Comércio Varejista' };
+  }
+
+  return { sector: 'outros', label: 'Outros Setores' };
 }
 
-export function parseBrasilApiResponseToLead(apiData: BrasilApiCnpjResponse): RecentCompanyLead {
+export function parseBrasilApiResponseToLead(
+  apiData: BrasilApiCnpjResponse,
+  apiMeta: { fonte: string; url_ou_api: string; consultado_em?: string }
+): RecentCompanyLead {
+  const consultadoEm = apiMeta.consultado_em ?? new Date().toISOString();
+  const fonte = apiMeta.fonte;
+  const urlApi = apiMeta.url_ou_api;
+
   const cleanCnpj = formatCnpj(apiData.cnpj);
+  const cnpjDigits = cleanCnpj.replace(/\D/g, '');
 
-  // Calcula dias desde a data de abertura oficial
-  let dias = 30;
-  if (apiData.data_inicio_atividade) {
-    const openingDate = new Date(apiData.data_inicio_atividade);
+  const strField = (val?: string | null): ProvenanceField<string> =>
+    val && val.trim() !== ''
+      ? verificado({ valor: val.trim(), fonte, url_ou_api: urlApi, consultado_em: consultadoEm })
+      : desconhecido<string>(`Campo ausente em ${fonte}`, consultadoEm);
+
+  const dataAberturaField = strField(apiData.data_inicio_atividade);
+
+  let diasCriacaoField: ProvenanceField<number>;
+  let faixaTempoField: ProvenanceField<Exclude<CompanyTimeWindow, 'todos'>>;
+  let rotuloEstagioField: ProvenanceField<string>;
+
+  if (dataAberturaField.status === 'verificado' && dataAberturaField.valor) {
+    const openingDate = new Date(`${dataAberturaField.valor}T00:00:00Z`);
     const today = new Date();
-    const diffTime = Math.abs(today.getTime() - openingDate.getTime());
-    dias = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-  }
+    const diffMs = today.getTime() - openingDate.getTime();
+    const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 
-  let faixa: RecentCompanyLead['faixaTempo'] = '365_dias';
-  if (dias <= 7) faixa = '7_dias';
-  else if (dias <= 15) faixa = '15_dias';
-  else if (dias <= 30) faixa = '30_dias';
-  else if (dias <= 60) faixa = '60_dias';
-  else if (dias <= 90) faixa = '90_dias';
-  else if (dias <= 180) faixa = '180_dias';
+    diasCriacaoField = inferido({
+      valor: dias,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: 'diasCriacao = floor((data_consulta - data_inicio_atividade) / 86400000ms)',
+    });
 
-  const cnaeCode = formatCnae(apiData.cnae_fiscal);
-  const sectorInfo = inferSectorFromCnae(cnaeCode, `${apiData.cnae_fiscal_descricao} ${apiData.razao_social}`);
+    let faixa: Exclude<CompanyTimeWindow, 'todos'> = '365_dias';
+    if (dias <= 7) faixa = '7_dias';
+    else if (dias <= 15) faixa = '15_dias';
+    else if (dias <= 30) faixa = '30_dias';
+    else if (dias <= 60) faixa = '60_dias';
+    else if (dias <= 90) faixa = '90_dias';
+    else if (dias <= 180) faixa = '180_dias';
 
-  // Sócio principal
-  const firstSocio = apiData.qsa && apiData.qsa.length > 0 ? apiData.qsa[0] : null;
-  const socioNome = firstSocio?.nome_socio || 'Sócio-Administrador';
-  const socioQualif = firstSocio?.qualificacao_socio || 'Sócio-Administrador';
+    faixaTempoField = inferido({
+      valor: faixa,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: 'Classificação determinística por janela de dias de atividade',
+    });
 
-  // Telefone formatado
-  let rawPhone = apiData.ddd_telefone_1 || '61981001234';
-  const cleanPhone = rawPhone.replace(/\D/g, '');
-  const ddd = cleanPhone.slice(0, 2) || '61';
-  const num = cleanPhone.slice(2) || '981001234';
-  const telefoneFormatado = `(${ddd}) ${num.length === 9 ? num.slice(0, 5) + '-' + num.slice(5) : num.slice(0, 4) + '-' + num.slice(4)}`;
-
-  // Estágio e probabilidade sem sistema
-  let prob = 70;
-  let estagio: RecentCompanyLead['diagnosticoTecnologico']['estagioOperacional'] = 'expansao_recente';
-  let estagioDesc = 'Empresa recente em busca de padronização de processos.';
-
-  if (dias <= 15) {
-    prob = 98;
-    estagio = 'abertura_montagem';
-    estagioDesc = 'Fase de abertura de CNPJ. Zero sistemas legados instalados.';
-  } else if (dias <= 45) {
-    prob = 93;
-    estagio = 'primeiro_mes_caos';
-    estagioDesc = 'Primeiro mês operacional. Fechamento de caixa e pedidos no improviso.';
-  } else if (dias <= 90) {
-    prob = 86;
-    estagio = 'ajuste_caixa';
-    estagioDesc = 'Primeiro trimestre (Sweet Spot). Dono sofrendo com perda de tempo e planilhas.';
+    rotuloEstagioField = inferido({
+      valor: dias === 1 ? 'Aberta há 1 dia' : `Aberta há ${dias} dias`,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: 'Rótulo descritivo derivado diretamente de diasCriacao',
+    });
   } else {
-    prob = 74;
-    estagio = 'expansao_recente';
-    estagioDesc = 'Consolidação de rotinas com ferramentas manuais sobrecarregadas.';
+    diasCriacaoField = desconhecido<number>(`data_inicio_atividade ausente em ${fonte}`, consultadoEm);
+    faixaTempoField = desconhecido<Exclude<CompanyTimeWindow, 'todos'>>(
+      `data_inicio_atividade ausente em ${fonte}`,
+      consultadoEm
+    );
+    rotuloEstagioField = desconhecido<string>(`data_inicio_atividade ausente em ${fonte}`, consultadoEm);
   }
 
-  const nomeExibicao = apiData.nome_fantasia && apiData.nome_fantasia.trim() !== ''
-    ? apiData.nome_fantasia.trim()
-    : apiData.razao_social;
+  const cnaeCode = apiData.cnae_fiscal ? formatCnae(apiData.cnae_fiscal) : null;
+  const cnaePrincipalField = cnaeCode
+    ? verificado({ valor: cnaeCode, fonte, url_ou_api: urlApi, consultado_em: consultadoEm })
+    : desconhecido<string>(`cnae_fiscal ausente em ${fonte}`, consultadoEm);
 
-  const primeiroNome = socioNome.split(' ')[0];
+  const cnaeDescField = strField(apiData.cnae_fiscal_descricao);
 
-  const dorEspecifica = `Gargalo em processos manuais de atendimento e ausência de controle automatizado de vendas e caixa na fase de ${dias} dias de abertura.`;
-  const solucaoSugerida = `Sistema web sob demanda integrado com WhatsApp para emissão rápida, controle de pedidos e fluxo de caixa.`;
+  const cnaesSecField: ProvenanceField<CnaeSecondaryItem[]> = Array.isArray(apiData.cnaes_secundarios)
+    ? verificado({
+        valor: apiData.cnaes_secundarios
+          .filter((c) => c && c.codigo)
+          .map((c) => ({ codigo: formatCnae(c.codigo), descricao: c.descricao || '' })),
+        fonte,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+      })
+    : desconhecido<CnaeSecondaryItem[]>(`cnaes_secundarios ausente em ${fonte}`, consultadoEm);
 
-  const msgWhatsapp = `Olá ${primeiroNome}, tudo bem? Meus parabéns pela abertura recente da ${nomeExibicao} em ${apiData.bairro || 'Brasília'}! Vimos que abriram há ${dias} dias e sabemos que nessa fase inicial a correria com equipe e fornecedores é intensa. Desenvolvemos uma solução enxuta no WhatsApp para resolver o controle de pedidos e caixa sem computadores caros. Teria 2 minutos para ver como funciona?`;
+  let setorField: ProvenanceField<CompanySector>;
+  let setorRotuloField: ProvenanceField<string>;
+  if (cnaeCode) {
+    const inferred = inferSectorFromCnae(cnaeCode, apiData.cnae_fiscal_descricao || '');
+    setorField = inferido({
+      valor: inferred.sector,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: `Agrupamento determinístico a partir do CNAE ${cnaeCode}`,
+    });
+    setorRotuloField = inferido({
+      valor: inferred.label,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: `Rótulo de categoria derivado do CNAE ${cnaeCode}`,
+    });
+  } else {
+    setorField = desconhecido<CompanySector>('CNAE principal não verificado', consultadoEm);
+    setorRotuloField = desconhecido<string>('CNAE principal não verificado', consultadoEm);
+  }
 
-  const leadId = `api-${cleanCnpj.replace(/\D/g, '')}`;
+  const razaoSocialField = strField(apiData.razao_social);
+  const nomeFantasiaField =
+    apiData.nome_fantasia && apiData.nome_fantasia.trim() !== ''
+      ? verificado({
+          valor: apiData.nome_fantasia.trim(),
+          fonte,
+          url_ou_api: urlApi,
+          consultado_em: consultadoEm,
+        })
+      : razaoSocialField.status === 'verificado' && razaoSocialField.valor
+      ? inferido({
+          valor: razaoSocialField.valor,
+          fonte,
+          url_ou_api: urlApi,
+          consultado_em: consultadoEm,
+          regra: 'nome_fantasia não informado; exibindo razao_social verificada',
+        })
+      : desconhecido<string>(`nome_fantasia ausente em ${fonte}`, consultadoEm);
+
+  const situacaoField = strField(apiData.descricao_situacao_cadastral);
+  const porteField = strField(apiData.porte || apiData.descricao_porte);
+  const naturezaField = strField(apiData.natureza_juridica);
+
+  const capitalField: ProvenanceField<number> =
+    typeof apiData.capital_social === 'number' && !Number.isNaN(apiData.capital_social)
+      ? verificado({
+          valor: apiData.capital_social,
+          fonte,
+          url_ou_api: urlApi,
+          consultado_em: consultadoEm,
+        })
+      : desconhecido<number>(`capital_social ausente em ${fonte}`, consultadoEm);
+
+  const ufField = strField(apiData.uf);
+  const municipioField = strField(apiData.municipio);
+  const bairroField = strField(apiData.bairro);
+  const logradouroField = strField(apiData.logradouro);
+  const numeroField = strField(apiData.numero);
+  const complementoField = strField(apiData.complemento);
+  const cepField = strField(apiData.cep);
+
+  const addressParts = [
+    logradouroField.valor,
+    numeroField.valor,
+    complementoField.valor,
+    bairroField.valor,
+    municipioField.valor && ufField.valor
+      ? `${municipioField.valor} - ${ufField.valor}`
+      : municipioField.valor || ufField.valor,
+    cepField.valor ? `CEP ${cepField.valor}` : null,
+  ].filter(Boolean);
+
+  const enderecoCompletoField: ProvenanceField<string> =
+    addressParts.length > 0
+      ? inferido({
+          valor: addressParts.join(', '),
+          fonte,
+          url_ou_api: urlApi,
+          consultado_em: consultadoEm,
+          regra: 'Concatenação determinística dos campos de endereço verificados',
+        })
+      : desconhecido<string>(`Endereço ausente em ${fonte}`, consultadoEm);
+
+  const qsaList: QsaPartner[] = Array.isArray(apiData.qsa)
+    ? apiData.qsa
+        .filter((q) => q && q.nome_socio)
+        .map((q) => ({
+          nome: q.nome_socio.trim(),
+          qualificacao: (q.qualificacao_socio || 'Sócio').trim(),
+        }))
+    : [];
+
+  const qsaField: ProvenanceField<QsaPartner[]> = Array.isArray(apiData.qsa)
+    ? verificado({ valor: qsaList, fonte, url_ou_api: urlApi, consultado_em: consultadoEm })
+    : desconhecido<QsaPartner[]>(`QSA ausente em ${fonte}`, consultadoEm);
+
+  let titularField: ProvenanceField<PrincipalHolder>;
+  if (qsaList.length > 0) {
+    titularField = verificado({
+      valor: {
+        nome: qsaList[0].nome,
+        qualificacao: qsaList[0].qualificacao,
+        origem: 'qsa',
+      },
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+    });
+  } else {
+    titularField = desconhecido<PrincipalHolder>(
+      `Sem QSA em ${fonte} (comum em MEI/EI; verificar titularidade na abordagem)`,
+      consultadoEm
+    );
+  }
+
+  const tel1Fmt = formatPhoneBr(apiData.ddd_telefone_1);
+  const tel2Fmt = formatPhoneBr(apiData.ddd_telefone_2);
+  const tel1Field = apiData.ddd_telefone_1?.trim()
+    ? verificado({
+        valor: apiData.ddd_telefone_1.replace(/\D/g, ''),
+        fonte: `${fonte} (consta no cadastro público)`,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+      })
+    : desconhecido<string>(`ddd_telefone_1 ausente em ${fonte}`, consultadoEm);
+
+  const tel2Field = apiData.ddd_telefone_2?.trim()
+    ? verificado({
+        valor: apiData.ddd_telefone_2.replace(/\D/g, ''),
+        fonte: `${fonte} (consta no cadastro público)`,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+      })
+    : desconhecido<string>(`ddd_telefone_2 ausente em ${fonte}`, consultadoEm);
+
+  const telefoneFormatadoField = tel1Fmt
+    ? inferido({
+        valor: tel1Fmt,
+        fonte: `${fonte} (consta no cadastro público)`,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+        regra: 'Formatação DDD + número a partir de ddd_telefone_1 verificado',
+      })
+    : tel2Fmt
+    ? inferido({
+        valor: tel2Fmt,
+        fonte: `${fonte} (consta no cadastro público)`,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+        regra: 'Formatação DDD + número a partir de ddd_telefone_2 verificado',
+      })
+    : desconhecido<string>(`Telefone ausente em ${fonte}`, consultadoEm);
+
+  const emailField = strField(apiData.email || undefined);
+
+  const tipoContatoField: ProvenanceField<TipoContato> =
+    tel1Field.status === 'verificado' || emailField.status === 'verificado'
+      ? desconhecido<TipoContato>('Classificação de contato empresa vs. contabilidade pendente de heurística', consultadoEm)
+      : desconhecido<TipoContato>('Sem telefone ou e-mail no cadastro', consultadoEm);
 
   return {
-    id: leadId,
-    cnpj: cleanCnpj,
-    razaoSocial: apiData.razao_social,
-    nomeFantasia: nomeExibicao,
-    dataAbertura: apiData.data_inicio_atividade || new Date().toISOString().split('T')[0],
-    diasCriacao: dias,
-    faixaTempo: faixa,
-    setor: sectorInfo.sector,
-    setorRotulo: sectorInfo.label,
-    cnaePrincipal: cnaeCode,
-    cnaeDescricao: apiData.cnae_fiscal_descricao || 'Atividade principal',
-    cnaesSecundarios: apiData.cnaes_secundarios?.map(c => formatCnae(c.codigo)),
-    uf: apiData.uf || 'DF',
-    municipio: apiData.municipio || 'Brasília',
-    bairroRegiao: apiData.bairro || 'Brasília',
-    enderecoCompleto: `${apiData.logradouro || 'Endereço'}, ${apiData.numero || 'S/N'}, ${apiData.bairro || 'Bairro'}, ${apiData.municipio || 'Brasília'} - ${apiData.uf || 'DF'}, CEP ${apiData.cep || '70000-000'}`,
-    cep: apiData.cep || '70000-000',
-    porte: (apiData.porte as any) || 'ME',
-    capitalSocial: apiData.capital_social || 50000,
-    socioPrincipal: {
-      nome: socioNome,
-      qualificacao: socioQualif,
-    },
+    id: `cnpj-${cnpjDigits}`,
+    recordStatus: 'ativo',
+    cnpj: verificado({
+      valor: cleanCnpj,
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+    }),
+    razaoSocial: razaoSocialField,
+    nomeFantasia: nomeFantasiaField,
+    situacaoCadastral: situacaoField,
+    dataAbertura: dataAberturaField,
+    diasCriacao: diasCriacaoField,
+    faixaTempo: faixaTempoField,
+    rotuloEstagio: rotuloEstagioField,
+    setor: setorField,
+    setorRotulo: setorRotuloField,
+    cnaePrincipal: cnaePrincipalField,
+    cnaeDescricao: cnaeDescField,
+    cnaesSecundarios: cnaesSecField,
+    uf: ufField,
+    municipio: municipioField,
+    bairroRegiao: bairroField,
+    logradouro: logradouroField,
+    numero: numeroField,
+    complemento: complementoField,
+    cep: cepField,
+    enderecoCompleto: enderecoCompletoField,
+    porte: porteField,
+    naturezaJuridica: naturezaField,
+    capitalSocial: capitalField,
+    qsa: qsaField,
+    titularOuSocioPrincipal: titularField,
     contato: {
-      telefoneWhatsapp: cleanPhone,
-      telefoneFormatado,
-      email: apiData.email || 'contato@empresa.com.br',
-      temWhatsappVerificado: true,
+      telefone1: tel1Field,
+      telefone2: tel2Field,
+      telefoneFormatado: telefoneFormatadoField,
+      email: emailField,
+      tipoContato: tipoContatoField,
+      motivoTipoContato: desconhecido<string>('Classificação de contato pendente', consultadoEm),
     },
-    diagnosticoTecnologico: {
-      scoreSemSistema: prob,
-      estagioOperacional: estagio,
-      estagioDescricao: estagioDesc,
-      gargaloUrgente: dorEspecifica,
-      solucaoImediataSugerida: solucaoSugerida,
-      ticketSetupSugerido: 2500,
-      ticketMensalSugerido: 320,
+    diagnostico: {
+      possuiSistema: desconhecido<'sim' | 'nao' | 'desconhecido'>(
+        'Não verificado — confirmar em abordagem comercial',
+        null
+      ),
+      observacaoSistema: desconhecido<string>('Sem diagnóstico confirmado', null),
     },
-    pitchAbordagemSugerido: {
-      ganchoAbertura: `Empresa aberta há ${dias} dias no DF`,
-      mensagemWhatsapp: msgWhatsapp,
-      gatilhoPsicologico: 'Abertura Recente & Apoio no Começo da Operação',
+    abordagem: {
+      statusContato: 'nao_contatado',
+      naoContatar: false,
+      primeiroContatoEm: null,
+      followupEnviadoEm: null,
+      motivoBloqueio: null,
     },
   };
 }
@@ -240,14 +450,18 @@ export async function fetchCnpjFromOpenApi(cnpj: string): Promise<RecentCompanyL
 
   // Provedor 1: BrasilAPI
   try {
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`, {
-      headers: { 'Accept': 'application/json' },
+    const url = `https://brasilapi.com.br/api/cnpj/v1/${clean}`;
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
       cache: 'no-store',
     });
 
     if (res.ok) {
       const data: BrasilApiCnpjResponse = await res.json();
-      return parseBrasilApiResponseToLead(data);
+      return parseBrasilApiResponseToLead(data, {
+        fonte: 'Receita Federal via BrasilAPI',
+        url_ou_api: url,
+      });
     }
   } catch (err) {
     console.warn(`[OpenCnpjApi] BrasilAPI falhou para ${clean}, tentando MinhaReceita...`, err);
@@ -255,40 +469,18 @@ export async function fetchCnpjFromOpenApi(cnpj: string): Promise<RecentCompanyL
 
   // Provedor 2: MinhaReceita (fallback)
   try {
-    const res = await fetch(`https://minhareceita.org/${clean}`, {
-      headers: { 'Accept': 'application/json' },
+    const url = `https://minhareceita.org/${clean}`;
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
       cache: 'no-store',
     });
 
     if (res.ok) {
-      const data = await res.json();
-      // Normaliza dados do MinhaReceita
-      const normalized: BrasilApiCnpjResponse = {
-        cnpj: data.cnpj,
-        razao_social: data.razao_social,
-        nome_fantasia: data.nome_fantasia,
-        situacao_cadastral: 2,
-        descricao_situacao_cadastral: data.descricao_situacao_cadastral || 'ATIVA',
-        data_inicio_atividade: data.data_inicio_atividade,
-        cnae_fiscal: data.cnae_fiscal,
-        cnae_fiscal_descricao: data.cnae_fiscal_descricao,
-        cnaes_secundarios: data.cnaes_secundarios,
-        logradouro: data.logradouro,
-        numero: data.numero,
-        bairro: data.bairro,
-        municipio: data.municipio,
-        uf: data.uf,
-        cep: data.cep,
-        ddd_telefone_1: data.ddd_telefone_1,
-        email: data.email,
-        capital_social: data.capital_social || 50000,
-        porte: data.porte,
-        qsa: data.qsa?.map((q: any) => ({
-          nome_socio: q.nome_socio,
-          qualificacao_socio: q.qualificacao_socio,
-        })),
-      };
-      return parseBrasilApiResponseToLead(normalized);
+      const data: BrasilApiCnpjResponse = await res.json();
+      return parseBrasilApiResponseToLead(data, {
+        fonte: 'Receita Federal via MinhaReceita',
+        url_ou_api: url,
+      });
     }
   } catch (err) {
     console.error(`[OpenCnpjApi] MinhaReceita também falhou para ${clean}:`, err);
@@ -296,4 +488,3 @@ export async function fetchCnpjFromOpenApi(cnpj: string): Promise<RecentCompanyL
 
   return null;
 }
-

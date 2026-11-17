@@ -1,37 +1,45 @@
-import Link from "next/link";
-import { getNiches } from "@/lib/db";
-import { initializeDatabaseSeed } from "@/lib/seed";
-import { NicheLeaderboard } from "@/components/NicheLeaderboard";
-import { UnitEconomicsComparison } from "@/components/UnitEconomicsComparison";
-import { NichesCatalogTable } from "@/components/NichesCatalogTable";
-import AutoDiscoverDfButton from "@/components/AutoDiscoverDfButton";
-import { 
-  Building2, 
-  TrendingUp, 
-  CheckCircle, 
-  Target, 
-  ArrowRight, 
-  Search, 
-  MapPin, 
-  ChevronRight,
-  ExternalLink,
-  Sparkles
-} from "lucide-react";
+import Link from 'next/link';
+import { getNiches, getDiscardedSyntheticNiches } from '@/lib/db';
+import { NicheLeaderboard } from '@/components/NicheLeaderboard';
+import { UnitEconomicsComparison } from '@/components/UnitEconomicsComparison';
+import { NichesCatalogTable } from '@/components/NichesCatalogTable';
+import {
+  Building2,
+  TrendingUp,
+  CheckCircle,
+  Target,
+  Search,
+  MapPin,
+  Sparkles,
+} from 'lucide-react';
+import { formatProvenanceText } from '@/types/provenance';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  initializeDatabaseSeed();
   const niches = getNiches();
+  const discardedCount = getDiscardedSyntheticNiches().length;
 
   const totalNiches = niches.length;
-  const topNiche = [...niches].sort((a, b) => b.scoring.finalScore - a.scoring.finalScore)[0];
-  const totalEligibleCompanies = niches.reduce((sum, n) => sum + n.commercialViability.totalEligibleCompanies, 0);
-  const avgScore = totalNiches ? Math.round(niches.reduce((sum, n) => sum + n.scoring.finalScore, 0) / totalNiches) : 0;
+  const scoredNiches = niches.filter((n) => n.scoring.finalScore !== null);
+  const topNiche = [...scoredNiches].sort(
+    (a, b) => (b.scoring.finalScore ?? -1) - (a.scoring.finalScore ?? -1)
+  )[0];
+
+  const verifiedCompanyTotal = niches.reduce((sum, n) => {
+    const val = n.commercialViability.totalEligibleCompanies;
+    return val.status !== 'desconhecido' && val.valor ? sum + val.valor : sum;
+  }, 0);
+
+  const avgScore = scoredNiches.length
+    ? Math.round(
+        scoredNiches.reduce((sum, n) => sum + (n.scoring.finalScore ?? 0), 0) /
+          scoredNiches.length
+      )
+    : null;
 
   return (
     <div className="space-y-6">
-      {/* Top Banner de Ações Rápidas (Estilo Prospector) */}
       <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -46,7 +54,8 @@ export default async function DashboardPage() {
             Descoberta & Qualificação de Nichos Comerciais
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Identifique setores com alta urgência operacional e disposição a pagar antes de disparar o robô de prospecção do <strong className="text-slate-700 dark:text-slate-200">Prospector B2B</strong>.
+            Todos os dados exibidos seguem proveniência explícita (Verificado, Inferido ou Não verificado).
+            {discardedCount > 0 && ` (${discardedCount} registros sintéticos legados marcados como descartados.)`}
           </p>
         </div>
 
@@ -56,9 +65,8 @@ export default async function DashboardPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition shadow-sm"
           >
             <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Radar de Novas Empresas (0-1 ano)</span>
+            <span>Radar de Novas Empresas</span>
           </Link>
-          <AutoDiscoverDfButton />
           <Link
             href="/pesquisa"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-slate-200 dark:border-white/[0.08] transition shadow-sm"
@@ -69,17 +77,16 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Métricas Cards (Estilo MetricsBar do Prospector) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Nichos no Radar</span>
+            <span>Nichos Auditados</span>
             <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Target className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">{totalNiches}</div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">Setores auditados</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">Sem dados sintéticos</div>
         </div>
 
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-1">
@@ -90,24 +97,26 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="text-sm font-bold text-slate-900 dark:text-white truncate pt-1">
-            {topNiche ? topNiche.basicInfo.name : "-"}
+            {topNiche ? formatProvenanceText(topNiche.basicInfo.name) : 'Não verificado'}
           </div>
           <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-            {topNiche ? `Score: ${topNiche.scoring.finalScore} / 100` : "-"}
+            {topNiche && topNiche.scoring.finalScore !== null
+              ? `Score: ${topNiche.scoring.finalScore} / 100`
+              : 'Sem score verificado'}
           </div>
         </div>
 
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Empresas Mapeadas</span>
+            <span>Empresas Verificadas</span>
             <div className="w-6 h-6 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <Building2 className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {totalEligibleCompanies.toLocaleString("pt-BR")}
+            {verifiedCompanyTotal > 0 ? verifiedCompanyTotal.toLocaleString('pt-BR') : '0'}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">CNAEs oficiais do IBGE</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">Base real coletada</div>
         </div>
 
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-1">
@@ -118,23 +127,21 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {avgScore} <span className="text-xs font-normal text-slate-500">/ 100</span>
+            {avgScore !== null ? avgScore : 'Não verificado'}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">Ponderado em 8 critérios</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">Critérios com evidência</div>
         </div>
       </div>
 
-      {/* Grid Principal: Leaderboard Sem Truncamento & Unit Economics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Painel Esquerdo: Ranking Completo sem quebra de texto */}
         <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Ranking de Nichos por Pontuação
+                Ranking de Nichos por Evidência
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Classificação por viabilidade técnica, comercial e facilidade de entrada
+                Classificação baseada exclusivamente em critérios verificáveis
               </p>
             </div>
             <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
@@ -145,19 +152,18 @@ export default async function DashboardPage() {
           <NicheLeaderboard niches={niches} />
         </div>
 
-        {/* Painel Direito: Unit Economics Comparativo */}
         <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Projeção de Retorno (Top 4 Nichos)
+                Cenários Hipotéticos (Editáveis)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Setup de Implantação vs Receita Recorrente Anual (ARR) no Cenário Base
+                Simulações matemáticas com premissas declaradas — não constituem previsão
               </p>
             </div>
-            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              1º Ano
+            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              Hipotético
             </span>
           </div>
 
@@ -165,7 +171,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Catálogo Top 50 Nichos com Filtros e Busca Rápida */}
       <NichesCatalogTable niches={niches} />
     </div>
   );

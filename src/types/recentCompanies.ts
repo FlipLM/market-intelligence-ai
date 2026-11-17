@@ -1,80 +1,115 @@
+import { ProvenanceField } from './provenance';
+
 /**
- * Tipos e Contratos para o Radar de Empresas e Comércios Recém-Abertos
+ * Tipos e Contratos com Proveniência para o Radar de Empresas Recém-Abertas
  */
 
-export type CompanyTimeWindow = 
-  | '7_dias' 
-  | '15_dias' 
-  | '30_dias' 
-  | '60_dias' 
-  | '90_dias' 
-  | '180_dias' 
+export type CompanyTimeWindow =
+  | '7_dias'
+  | '15_dias'
+  | '30_dias'
+  | '60_dias'
+  | '90_dias'
+  | '180_dias'
   | '365_dias'
   | 'todos';
 
-export type CompanySector = 
+export type CompanySector =
   | 'todos'
   | 'alimentacao'
   | 'automotivo'
   | 'saude_estetica'
   | 'construcao_obras'
   | 'servicos_b2b'
-  | 'comercio_varejo';
+  | 'comercio_varejo'
+  | 'outros';
+
+export type TipoContato = 'provavel_empresa' | 'possivel_contabilidade' | 'desconhecido';
+
+export type PossuiSistemaStatus = 'sim' | 'nao' | 'desconhecido';
+
+export type AbordagemStatus =
+  | 'nao_contatado'
+  | 'primeiro_contato_enviado'
+  | 'followup_enviado'
+  | 'respondeu'
+  | 'recusou';
+
+export interface QsaPartner {
+  nome: string;
+  qualificacao: string;
+}
+
+export interface CnaeSecondaryItem {
+  codigo: string;
+  descricao: string;
+}
+
+export interface PrincipalHolder {
+  nome: string;
+  qualificacao: string;
+  origem: 'qsa' | 'mei_ei_titular' | 'desconhecido';
+}
 
 export interface RecentCompanyLead {
   id: string;
-  cnpj: string;
-  razaoSocial: string;
-  nomeFantasia: string;
-  dataAbertura: string; // ISO Date "YYYY-MM-DD"
-  diasCriacao: number; // Ex: 14
-  faixaTempo: '7_dias' | '15_dias' | '30_dias' | '60_dias' | '90_dias' | '180_dias' | '365_dias';
-  setor: CompanySector;
-  setorRotulo: string; // "Alimentação & Gastronomia"
-  cnaePrincipal: string; // "5611-2/01"
-  cnaeDescricao: string; // "Restaurantes e similares"
-  cnaesSecundarios?: string[];
-  uf: string; // "DF"
-  municipio: string; // "Brasília"
-  bairroRegiao: string; // "Águas Claras", "Asa Sul", etc.
-  enderecoCompleto: string;
-  cep: string;
-  porte: 'ME' | 'EPP' | 'LTDA';
-  capitalSocial: number;
-  socioPrincipal: {
-    nome: string;
-    qualificacao: string; // "Sócio-Administrador"
-  };
+  recordStatus: 'ativo' | 'descartado_sintetico';
+  cnpj: ProvenanceField<string>;
+  razaoSocial: ProvenanceField<string>;
+  nomeFantasia: ProvenanceField<string>;
+  situacaoCadastral: ProvenanceField<string>;
+  dataAbertura: ProvenanceField<string>;
+  diasCriacao: ProvenanceField<number>;
+  faixaTempo: ProvenanceField<Exclude<CompanyTimeWindow, 'todos'>>;
+  rotuloEstagio: ProvenanceField<string>;
+  setor: ProvenanceField<CompanySector>;
+  setorRotulo: ProvenanceField<string>;
+  cnaePrincipal: ProvenanceField<string>;
+  cnaeDescricao: ProvenanceField<string>;
+  cnaesSecundarios: ProvenanceField<CnaeSecondaryItem[]>;
+  uf: ProvenanceField<string>;
+  municipio: ProvenanceField<string>;
+  bairroRegiao: ProvenanceField<string>;
+  logradouro: ProvenanceField<string>;
+  numero: ProvenanceField<string>;
+  complemento: ProvenanceField<string>;
+  cep: ProvenanceField<string>;
+  enderecoCompleto: ProvenanceField<string>;
+  porte: ProvenanceField<string>;
+  naturezaJuridica: ProvenanceField<string>;
+  capitalSocial: ProvenanceField<number>;
+  qsa: ProvenanceField<QsaPartner[]>;
+  titularOuSocioPrincipal: ProvenanceField<PrincipalHolder>;
   contato: {
-    telefoneWhatsapp: string;
-    telefoneFormatado: string;
-    email: string;
-    temWhatsappVerificado: boolean;
+    telefone1: ProvenanceField<string>;
+    telefone2: ProvenanceField<string>;
+    telefoneFormatado: ProvenanceField<string>;
+    email: ProvenanceField<string>;
+    tipoContato: ProvenanceField<TipoContato>;
+    motivoTipoContato: ProvenanceField<string>;
   };
-  diagnosticoTecnologico: {
-    scoreSemSistema: number; // 0 a 100 (probabilidade de NÃO ter sistema instalado)
-    estagioOperacional: 'abertura_montagem' | 'primeiro_mes_caos' | 'ajuste_caixa' | 'expansao_recente';
-    estagioDescricao: string;
-    gargaloUrgente: string;
-    solucaoImediataSugerida: string;
-    ticketSetupSugerido: number;
-    ticketMensalSugerido: number;
+  diagnostico: {
+    possuiSistema: ProvenanceField<PossuiSistemaStatus>;
+    observacaoSistema: ProvenanceField<string>;
   };
-  pitchAbordagemSugerido: {
-    ganchoAbertura: string;
-    mensagemWhatsapp: string;
-    gatilhoPsicologico: string;
+  abordagem: {
+    statusContato: AbordagemStatus;
+    naoContatar: boolean;
+    primeiroContatoEm: string | null;
+    followupEnviadoEm: string | null;
+    motivoBloqueio: string | null;
   };
 }
 
 export interface RecentCompaniesFilterOptions {
-  tempoMaximoDias?: number; // 7, 15, 30, 60, 90, 180, 365
+  tempoMaximoDias?: number;
   setor?: CompanySector;
-  regiao?: string; // "DF" ou bairro específico
-  busca?: string; // texto livre
-  apenasWhatsappValido?: boolean;
+  regiao?: string;
+  busca?: string;
   porte?: string;
-  ordenarPor?: 'mais_recentes' | 'maior_score' | 'maior_capital';
+  tipoContato?: TipoContato | 'todos';
+  ocultarNaoContatar?: boolean;
+  ordenarPor?: 'mais_recentes' | 'maior_capital' | 'razao_social';
 }
 
 export interface RecentCompaniesStats {
@@ -83,8 +118,7 @@ export interface RecentCompaniesStats {
   criadasUltimos30Dias: number;
   criadasUltimos90Dias: number;
   criadasUltimoAno: number;
-  setorMaisAtivo: string;
-  taxaMediaSemSistema: number;
-  capitalSocialMedio: number;
+  setorMaisAtivo: ProvenanceField<string>;
+  capitalSocialMedio: ProvenanceField<number>;
+  possiveisContabilidades: number;
 }
-

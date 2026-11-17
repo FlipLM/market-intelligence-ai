@@ -1,15 +1,16 @@
-import { 
-  ScoringWeights, 
-  ScoreItem, 
-  NicheScoreBreakdown, 
-  MetricConfidence, 
+import {
+  ScoringWeights,
+  ScoreItem,
+  NicheScoreBreakdown,
+  MetricConfidence,
   DemandAnalysis,
   PaidTrafficAnalysis,
   CompetitiveAnalysis,
   CommercialViability,
   SoftwareOpportunity,
-  DataEvidence
+  DataEvidence,
 } from '@/types/market';
+import { desconhecido, hasEvidence, inferido } from '@/types/provenance';
 
 interface EvaluationContext {
   demand: DemandAnalysis;
@@ -20,170 +21,254 @@ interface EvaluationContext {
 }
 
 export function calculateNicheScore(
-  ctx: EvaluationContext, 
+  ctx: EvaluationContext,
   weights: ScoringWeights
 ): NicheScoreBreakdown {
   const items: ScoreItem[] = [];
 
-  // 1. Demanda comprovada por soluções digitais (20%)
-  const demandEvidences = ctx.demand.evidences.filter(e => e.origin === 'observado');
-  const techTermsCount = ctx.demand.trendingQueries.filter(q => q.intent === 'tecnologica').length;
-  let demandRaw = ctx.demand.overallDemandScore;
-  let demandConf: MetricConfidence = demandEvidences.length >= 2 ? 'alta' : demandEvidences.length === 1 ? 'media' : 'baixa';
-  
+  // 1. Demanda comprovada
+  const hasDemandScore = hasEvidence(ctx.demand.overallDemandScore);
   items.push({
+    key: 'demandaComprovada',
     name: 'Demanda comprovada por soluções digitais',
     weight: weights.demandaComprovada,
-    rawScore: demandRaw,
-    weightedScore: Number((demandRaw * weights.demandaComprovada).toFixed(2)),
-    confidence: demandConf,
-    justification: `Identificados ${techTermsCount} termos específicos com intenção tecnológica e ${demandEvidences.length} evidências observadas diretamente no setor.`
+    rawScore: hasDemandScore ? ctx.demand.overallDemandScore.valor! : null,
+    weightedScore: hasDemandScore
+      ? Number((ctx.demand.overallDemandScore.valor! * weights.demandaComprovada).toFixed(2))
+      : null,
+    status: hasDemandScore ? ctx.demand.overallDemandScore.status : 'desconhecido',
+    fonte: ctx.demand.overallDemandScore.fonte,
+    consultado_em: ctx.demand.overallDemandScore.consultado_em,
+    justification: hasDemandScore
+      ? `Pontuação baseada em ${ctx.demand.evidences.length} evidência(s) registrada(s).`
+      : 'Não verificado: sem dados observados de demanda.',
   });
 
-  // 2. Intensidade dos problemas operacionais (15%)
-  const highPainOppCount = ctx.opportunities.filter(o => o.complexity !== 'baixa').length;
-  const rawPainScore = Math.min(100, ctx.opportunities.length * 20 + highPainOppCount * 10);
+  // 2. Problemas operacionais (somente se houver oportunidades não-hipótese com evidência)
+  const evidencedOpps = ctx.opportunities.filter(
+    (o) => !o.isAiHypothesis && hasEvidence(o.evidence)
+  );
+  const hasPain = evidencedOpps.length > 0;
+  const painScore = hasPain ? Math.min(100, evidencedOpps.length * 25) : null;
   items.push({
+    key: 'problemasOperacionais',
     name: 'Intensidade dos problemas operacionais',
     weight: weights.problemasOperacionais,
-    rawScore: rawPainScore,
-    weightedScore: Number((rawPainScore * weights.problemasOperacionais).toFixed(2)),
-    confidence: 'alta',
-    justification: `${ctx.opportunities.length} pontos críticos de ineficiência operacional mapeados com impacto direto em perda de receita/tempo.`
+    rawScore: painScore,
+    weightedScore:
+      painScore !== null
+        ? Number((painScore * weights.problemasOperacionais).toFixed(2))
+        : null,
+    status: hasPain ? 'inferido' : 'desconhecido',
+    fonte: hasPain
+      ? 'Oportunidades com evidência verificada'
+      : 'Não verificado: requer validação em campo',
+    consultado_em: hasPain ? new Date().toISOString() : null,
+    justification: hasPain
+      ? `${evidencedOpps.length} oportunidade(s) com evidência registrada.`
+      : 'Não verificado: sem evidência empírica de dores operacionais.',
   });
 
-  // 3. Capacidade e disposição de investimento (15%)
-  let capacityRaw = 50;
-  if (ctx.viability.averageCompanyRevenueEstimate.includes('R$ 200 mil') || ctx.viability.averageCompanyRevenueEstimate.includes('R$ 500 mil') || ctx.viability.averageCompanyRevenueEstimate.includes('milhões')) {
-    capacityRaw = 85;
-  } else if (ctx.viability.averageCompanyRevenueEstimate.includes('R$ 80 mil') || ctx.viability.averageCompanyRevenueEstimate.includes('R$ 100 mil')) {
-    capacityRaw = 70;
-  } else {
-    capacityRaw = 55;
-  }
+  // 3. Capacidade de investimento
+  const hasRevenue = hasEvidence(ctx.viability.averageCompanyRevenue);
   items.push({
+    key: 'capacidadeInvestimento',
     name: 'Capacidade e disposição de investimento',
     weight: weights.capacidadeInvestimento,
-    rawScore: capacityRaw,
-    weightedScore: Number((capacityRaw * weights.capacidadeInvestimento).toFixed(2)),
-    confidence: 'media',
-    justification: `Estimativa de faturamento médio e histórico de contratação de serviços corporativos: ${ctx.viability.averageCompanyRevenueEstimate}.`
+    rawScore: hasRevenue ? 50 : null,
+    weightedScore: hasRevenue
+      ? Number((50 * weights.capacidadeInvestimento).toFixed(2))
+      : null,
+    status: hasRevenue ? ctx.viability.averageCompanyRevenue.status : 'desconhecido',
+    fonte: ctx.viability.averageCompanyRevenue.fonte,
+    consultado_em: ctx.viability.averageCompanyRevenue.consultado_em,
+    justification: hasRevenue
+      ? `Faturamento com fonte citada: ${ctx.viability.averageCompanyRevenue.valor}.`
+      : 'Não verificado: sem fonte de faturamento médio do setor.',
   });
 
-  // 4. Facilidade de prospecção e acesso aos decisores (15%)
-  let decisionScore = 60;
-  if (ctx.viability.accessibleDecisionMakers === 'direto') decisionScore = 95;
-  else if (ctx.viability.accessibleDecisionMakers === 'acessivel') decisionScore = 80;
-  else if (ctx.viability.accessibleDecisionMakers === 'moderado') decisionScore = 60;
-  else decisionScore = 35;
-
+  // 4. Facilidade de prospecção
+  const hasDecisor = hasEvidence(ctx.viability.accessibleDecisionMakers);
+  let decisorScore: number | null = null;
+  if (hasDecisor) {
+    const v = ctx.viability.accessibleDecisionMakers.valor;
+    decisorScore = v === 'direto' ? 90 : v === 'acessivel' ? 75 : v === 'moderado' ? 55 : 35;
+  }
   items.push({
+    key: 'facilidadeProspeccao',
     name: 'Facilidade de prospecção e acesso aos decisores',
     weight: weights.facilidadeProspeccao,
-    rawScore: decisionScore,
-    weightedScore: Number((decisionScore * weights.facilidadeProspeccao).toFixed(2)),
-    confidence: 'alta',
-    justification: `Acessibilidade de contato via WhatsApp/Telefone e presença do proprietário na operação classificada como "${ctx.viability.accessibleDecisionMakers}".`
+    rawScore: decisorScore,
+    weightedScore:
+      decisorScore !== null
+        ? Number((decisorScore * weights.facilidadeProspeccao).toFixed(2))
+        : null,
+    status: hasDecisor ? ctx.viability.accessibleDecisionMakers.status : 'desconhecido',
+    fonte: ctx.viability.accessibleDecisionMakers.fonte,
+    consultado_em: ctx.viability.accessibleDecisionMakers.consultado_em,
+    justification: hasDecisor
+      ? `Classificação baseada em contatos verificados: ${ctx.viability.accessibleDecisionMakers.valor}.`
+      : 'Não verificado: acessibilidade não mensurada em base real.',
   });
 
-  // 5. Potencial de recorrência (10%)
-  let recurrenceScore = 70;
-  if (ctx.viability.reusabilityPotential === 'saas_escalavel') recurrenceScore = 95;
-  else if (ctx.viability.reusabilityPotential === 'customizavel') recurrenceScore = 80;
-  else recurrenceScore = 40;
-
+  // 5. Potencial de recorrência
+  const hasRecurrence = hasEvidence(ctx.viability.reusabilityPotential);
+  let recScore: number | null = null;
+  if (hasRecurrence) {
+    const v = ctx.viability.reusabilityPotential.valor;
+    recScore = v === 'saas_escalavel' ? 90 : v === 'customizavel' ? 75 : 40;
+  }
   items.push({
+    key: 'potencialRecorrencia',
     name: 'Potencial de recorrência',
     weight: weights.potencialRecorrencia,
-    rawScore: recurrenceScore,
-    weightedScore: Number((recurrenceScore * weights.potencialRecorrencia).toFixed(2)),
-    confidence: 'alta',
-    justification: `Aderência à cobrança de manutenção, licença contínua ou hospedagem/suporte classificada como "${ctx.viability.reusabilityPotential}".`
+    rawScore: recScore,
+    weightedScore:
+      recScore !== null ? Number((recScore * weights.potencialRecorrencia).toFixed(2)) : null,
+    status: hasRecurrence ? ctx.viability.reusabilityPotential.status : 'desconhecido',
+    fonte: ctx.viability.reusabilityPotential.fonte,
+    consultado_em: ctx.viability.reusabilityPotential.consultado_em,
+    justification: hasRecurrence
+      ? `Potencial classificado como ${ctx.viability.reusabilityPotential.valor}.`
+      : 'Não verificado: sem dados de retenção/recorrência.',
   });
 
-  // 6. Oportunidade competitiva (10%)
-  let compScore = 60;
-  if (ctx.competition.marketSaturation === 'subatendido') compScore = 95;
-  else if (ctx.competition.marketSaturation === 'dominado_por_legados') compScore = 85;
-  else if (ctx.competition.marketSaturation === 'moderado') compScore = 65;
-  else compScore = 30;
-
+  // 6. Oportunidade competitiva
+  const hasComp = hasEvidence(ctx.competition.marketSaturation);
+  let compScore: number | null = null;
+  if (hasComp) {
+    const v = ctx.competition.marketSaturation.valor;
+    compScore =
+      v === 'subatendido' ? 90 : v === 'dominado_por_legados' ? 80 : v === 'moderado' ? 60 : 30;
+  }
   items.push({
+    key: 'oportunidadeCompetitiva',
     name: 'Oportunidade competitiva',
     weight: weights.oportunidadeCompetitiva,
     rawScore: compScore,
-    weightedScore: Number((compScore * weights.oportunidadeCompetitiva).toFixed(2)),
-    confidence: 'alta',
-    justification: `Saturação do mercado: "${ctx.competition.marketSaturation}". Ângulo de ataque: ${ctx.competition.differentiationAngle}.`
+    weightedScore:
+      compScore !== null ? Number((compScore * weights.oportunidadeCompetitiva).toFixed(2)) : null,
+    status: hasComp ? ctx.competition.marketSaturation.status : 'desconhecido',
+    fonte: ctx.competition.marketSaturation.fonte,
+    consultado_em: ctx.competition.marketSaturation.consultado_em,
+    justification: hasComp
+      ? `Saturação com fonte: ${ctx.competition.marketSaturation.valor}.`
+      : 'Não verificado: requer pesquisa manual de concorrentes.',
   });
 
-  // 7. Viabilidade técnica e operacional (10%)
-  const avgDevDays = ctx.opportunities.reduce((acc, curr) => acc + curr.typicalDevelopmentDays, 0) / (ctx.opportunities.length || 1);
-  let techViabilityScore = 80;
-  if (avgDevDays <= 15) techViabilityScore = 95;
-  else if (avgDevDays <= 30) techViabilityScore = 80;
-  else if (avgDevDays <= 60) techViabilityScore = 55;
-  else techViabilityScore = 35;
-
+  // 7. Viabilidade técnica
+  const verifiedDaysOpps = ctx.opportunities.filter(
+    (o) => !o.isAiHypothesis && hasEvidence(o.typicalDevelopmentDays)
+  );
+  const hasTech = verifiedDaysOpps.length > 0;
+  let techScore: number | null = null;
+  if (hasTech) {
+    const avgDays =
+      verifiedDaysOpps.reduce((acc, o) => acc + (o.typicalDevelopmentDays.valor || 0), 0) /
+      verifiedDaysOpps.length;
+    techScore = avgDays <= 15 ? 90 : avgDays <= 30 ? 75 : 50;
+  }
   items.push({
+    key: 'viabilidadeTecnica',
     name: 'Viabilidade técnica e operacional',
     weight: weights.viabilidadeTecnica,
-    rawScore: techViabilityScore,
-    weightedScore: Number((techViabilityScore * weights.viabilidadeTecnica).toFixed(2)),
-    confidence: 'alta',
-    justification: `Prazo médio estimado de desenvolvimento de MVP: ${Math.round(avgDevDays)} dias úteis sem bloqueadores regulatórios intransponíveis.`
+    rawScore: techScore,
+    weightedScore:
+      techScore !== null ? Number((techScore * weights.viabilidadeTecnica).toFixed(2)) : null,
+    status: hasTech ? 'inferido' : 'desconhecido',
+    fonte: hasTech
+      ? 'Estimativa técnica documentada'
+      : 'Não verificado: escopo técnico ainda não validado',
+    consultado_em: hasTech ? new Date().toISOString() : null,
+    justification: hasTech
+      ? 'Calculado a partir de estimativas documentadas.'
+      : 'Não verificado: sem especificação validada.',
   });
 
-  // 8. Qualidade das evidências (5%)
+  // 8. Qualidade das evidências
   const allEvidences: DataEvidence[] = [
     ...ctx.demand.evidences,
     ...ctx.paidTraffic.evidences,
     ...ctx.competition.evidences,
-    ...ctx.viability.evidences
+    ...ctx.viability.evidences,
   ];
-  const observedCount = allEvidences.filter(e => e.origin === 'observado').length;
-  const evidenceScore = Math.min(100, Math.round((observedCount / Math.max(1, allEvidences.length)) * 100));
+  const verifiedEvCount = allEvidences.filter((e) => e.status === 'verificado').length;
+  const evidencedCount = items.filter((i) => i.rawScore !== null).length;
+  const totalCount = items.length;
+  const confidenceFraction = Number((evidencedCount / totalCount).toFixed(2));
+
+  const evidenceRaw = allEvidences.length > 0
+    ? Math.round((verifiedEvCount / allEvidences.length) * 100)
+    : null;
 
   items.push({
+    key: 'qualidadeEvidencias',
     name: 'Qualidade das evidências',
     weight: weights.qualidadeEvidencias,
-    rawScore: evidenceScore,
-    weightedScore: Number((evidenceScore * weights.qualidadeEvidencias).toFixed(2)),
-    confidence: observedCount >= 4 ? 'comprovada' : 'media',
-    justification: `${observedCount} de ${allEvidences.length} evidências extraídas de fontes públicas verificadas (sem suposições não declaradas).`
+    rawScore: evidenceRaw,
+    weightedScore:
+      evidenceRaw !== null
+        ? Number((evidenceRaw * weights.qualidadeEvidencias).toFixed(2))
+        : null,
+    status: evidenceRaw !== null ? 'inferido' : 'desconhecido',
+    fonte:
+      evidenceRaw !== null
+        ? 'Cálculo determinístico sobre evidências coletadas'
+        : 'Nenhuma evidência verificada registrada',
+    consultado_em: new Date().toISOString(),
+    justification: `${verifiedEvCount} de ${allEvidences.length} evidências verificadas; ${evidencedCount} de ${totalCount} critérios com dados.`,
   });
 
-  // Cálculo da pontuação total ponderada
-  const sumWeights = Object.values(weights).reduce((a, b) => a + b, 0);
-  const totalWeighted = items.reduce((sum, item) => sum + item.weightedScore, 0);
-  const normalizedFinalScore = Math.round((totalWeighted / (sumWeights || 1)));
+  // Score final ponderado apenas sobre critérios com dados reais
+  const scoredItems = items.filter((i) => i.rawScore !== null);
+  const scoredWeightSum = scoredItems.reduce((sum, i) => sum + i.weight, 0);
+  const finalScore =
+    scoredWeightSum > 0
+      ? Math.round(
+          scoredItems.reduce((sum, i) => sum + i.rawScore! * i.weight, 0) / scoredWeightSum
+        )
+      : null;
 
-  // Índice de Confiança Geral (baseado em evidências e completude)
-  const confidenceIndex = Math.min(100, Math.round(evidenceScore * 0.5 + (observedCount >= 5 ? 50 : 25)));
+  let confidenceLevel: MetricConfidence = 'baixa';
+  if (confidenceFraction >= 0.75) confidenceLevel = 'alta';
+  else if (confidenceFraction >= 0.4) confidenceLevel = 'media';
 
-  let commercialPotential: NicheScoreBreakdown['commercialPotential'] = 'moderado';
-  if (normalizedFinalScore >= 80) commercialPotential = 'excepcional';
-  else if (normalizedFinalScore >= 70) commercialPotential = 'alto';
-  else if (normalizedFinalScore >= 50) commercialPotential = 'moderado';
-  else commercialPotential = 'baixo';
-
-  let entryEase: NicheScoreBreakdown['entryEase'] = 'moderada';
-  if (decisionScore >= 80 && compScore >= 75) entryEase = 'facil';
-  else if (decisionScore <= 50 || compScore <= 40) entryEase = 'dificil';
-
-  let executionRisk: NicheScoreBreakdown['executionRisk'] = 'moderado';
-  if (techViabilityScore >= 85 && ctx.viability.regulatoryRisks.length === 0) executionRisk = 'baixo';
-  else if (techViabilityScore <= 50 || ctx.viability.regulatoryRisks.length >= 2) executionRisk = 'alto';
+  const now = new Date().toISOString();
+  const commercialPotential =
+    finalScore !== null
+      ? inferido<'baixo' | 'moderado' | 'alto' | 'excepcional'>({
+          valor:
+            finalScore >= 80
+              ? 'excepcional'
+              : finalScore >= 70
+              ? 'alto'
+              : finalScore >= 50
+              ? 'moderado'
+              : 'baixo',
+          fonte: 'Cálculo ponderado sobre critérios com evidência',
+          regra: 'Faixas determinísticas sobre finalScore',
+          consultado_em: now,
+        })
+      : desconhecido<'baixo' | 'moderado' | 'alto' | 'excepcional'>(
+          'Critérios insuficientes para calcular potencial comercial',
+          now
+        );
 
   return {
-    finalScore: normalizedFinalScore,
-    confidenceIndex,
+    finalScore,
+    confidenceLevel,
+    confidenceFraction,
+    evidencedCriteriaCount: evidencedCount,
+    totalCriteriaCount: totalCount,
     commercialPotential,
-    entryEase,
-    executionRisk,
-    digitalMaturity: ctx.demand.digitalizationNeedLevel === 'critica' || ctx.demand.digitalizationNeedLevel === 'alta' ? 'em_transicao' : 'madura',
-    competitiveIntensity: ctx.paidTraffic.auctionCompetition === 'feroz' || ctx.paidTraffic.auctionCompetition === 'alta' ? 'alta' : 'baixa',
-    items
+    entryEase: desconhecido<'dificil' | 'moderada' | 'facil'>(
+      'Requer evidência de decisores e concorrência',
+      now
+    ),
+    executionRisk: desconhecido<'baixo' | 'moderado' | 'alto'>(
+      'Requer validação técnica e regulatória',
+      now
+    ),
+    items,
   };
 }
-

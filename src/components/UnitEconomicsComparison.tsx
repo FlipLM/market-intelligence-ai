@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
-import { NicheReport } from "@/types/market";
-import { DollarSign, Clock, TrendingUp } from "lucide-react";
+import React from 'react';
+import { NicheReport } from '@/types/market';
+import { formatProvenanceText } from '@/types/provenance';
 
 interface UnitEconomicsComparisonProps {
   niches: NicheReport[];
@@ -10,15 +10,21 @@ interface UnitEconomicsComparisonProps {
 
 export function UnitEconomicsComparison({ niches }: UnitEconomicsComparisonProps) {
   const top4 = [...niches]
-    .sort((a, b) => b.scoring.finalScore - a.scoring.finalScore)
+    .sort((a, b) => (b.scoring.finalScore ?? -1) - (a.scoring.finalScore ?? -1))
     .slice(0, 4);
+
+  if (top4.length === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+        Nenhum cenário hipotético disponível. Cadastre um nicho para simular com premissas próprias.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {top4.map((niche, idx) => {
-        const baseScenario = niche.financialScenarios.find((s) => s.name === "Base") || niche.financialScenarios[0];
-        const totalYearRevenue = (baseScenario?.upfrontRevenue || 0) + (baseScenario?.firstYearArr || 0);
-
+      {top4.map((niche) => {
+        const scenario = niche.financialScenarios[0];
         return (
           <div
             key={niche.id}
@@ -26,32 +32,40 @@ export function UnitEconomicsComparison({ niches }: UnitEconomicsComparisonProps
           >
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                {niche.basicInfo.name}
+                {formatProvenanceText(niche.basicInfo.name)}
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shrink-0">
-                {baseScenario?.dealsClosed || 0} contratos
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold shrink-0">
+                Cenário Hipotético
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center pt-1">
               <div className="bg-slate-50 dark:bg-white/[0.03] p-2 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Setup Inicial</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                  Setup Simulado
+                </span>
                 <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                  R$ {(baseScenario?.upfrontRevenue || 0).toLocaleString("pt-BR")}
+                  R$ {(scenario?.upfrontRevenue || 0).toLocaleString('pt-BR')}
                 </span>
               </div>
 
               <div className="bg-slate-50 dark:bg-white/[0.03] p-2 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">ARR (12 meses)</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                  ARR Simulado
+                </span>
                 <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  R$ {(baseScenario?.firstYearArr || 0).toLocaleString("pt-BR")}
+                  R$ {(scenario?.firstYearArr || 0).toLocaleString('pt-BR')}
                 </span>
               </div>
 
               <div className="bg-slate-50 dark:bg-white/[0.03] p-2 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Payback Estimado</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                  Payback Simulado
+                </span>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                  {baseScenario?.paybackMonths || 0} meses
+                  {scenario?.paybackMonths !== null && scenario?.paybackMonths !== undefined
+                    ? `${scenario.paybackMonths} meses`
+                    : 'N/V'}
                 </span>
               </div>
             </div>
@@ -61,4 +75,3 @@ export function UnitEconomicsComparison({ niches }: UnitEconomicsComparisonProps
     </div>
   );
 }
-

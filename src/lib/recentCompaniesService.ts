@@ -1,88 +1,132 @@
-import { 
-  RecentCompanyLead, 
-  RecentCompaniesFilterOptions, 
-  RecentCompaniesStats 
+import {
+  RecentCompanyLead,
+  RecentCompaniesFilterOptions,
+  RecentCompaniesStats,
 } from '@/types/recentCompanies';
-import { getGeneratedRecentCompanies } from './data/recentCompaniesData';
+import { getRealRecentCompanies } from './data/recentCompaniesData';
+import { inferido, desconhecido, formatProvenanceText } from '@/types/provenance';
 
 export function getRecentCompanies(filters?: RecentCompaniesFilterOptions): RecentCompanyLead[] {
-  let companies = getGeneratedRecentCompanies();
+  let companies = getRealRecentCompanies();
 
   if (!filters) {
-    return companies.sort((a, b) => a.diasCriacao - b.diasCriacao);
+    return companies.sort(
+      (a, b) => (a.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER) - (b.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER)
+    );
   }
 
-  // Filtro por tempo máximo em dias (7, 15, 30, 60, 90, 180, 365)
+  if (filters.ocultarNaoContatar) {
+    companies = companies.filter((c) => !c.abordagem.naoContatar && c.abordagem.statusContato !== 'recusou');
+  }
+
   if (filters.tempoMaximoDias && filters.tempoMaximoDias > 0) {
-    companies = companies.filter(c => c.diasCriacao <= filters.tempoMaximoDias!);
+    companies = companies.filter(
+      (c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= filters.tempoMaximoDias!
+    );
   }
 
-  // Filtro por setor
   if (filters.setor && filters.setor !== 'todos') {
-    companies = companies.filter(c => c.setor === filters.setor);
+    companies = companies.filter((c) => c.setor.valor === filters.setor);
   }
 
-  // Filtro por região / bairro
   if (filters.regiao && filters.regiao !== 'todos') {
     const regLower = filters.regiao.toLowerCase();
-    companies = companies.filter(c => 
-      c.bairroRegiao.toLowerCase().includes(regLower) ||
-      c.enderecoCompleto.toLowerCase().includes(regLower)
+    companies = companies.filter(
+      (c) =>
+        (c.bairroRegiao.valor || '').toLowerCase().includes(regLower) ||
+        (c.municipio.valor || '').toLowerCase().includes(regLower) ||
+        (c.enderecoCompleto.valor || '').toLowerCase().includes(regLower)
     );
   }
 
-  // Filtro por busca textual
+  if (filters.tipoContato && filters.tipoContato !== 'todos') {
+    companies = companies.filter((c) => c.contato.tipoContato.valor === filters.tipoContato);
+  }
+
   if (filters.busca && filters.busca.trim() !== '') {
     const term = filters.busca.toLowerCase().trim();
-    companies = companies.filter(c =>
-      c.nomeFantasia.toLowerCase().includes(term) ||
-      c.razaoSocial.toLowerCase().includes(term) ||
-      c.cnpj.includes(term) ||
-      c.cnaePrincipal.includes(term) ||
-      c.cnaeDescricao.toLowerCase().includes(term) ||
-      c.socioPrincipal.nome.toLowerCase().includes(term) ||
-      c.bairroRegiao.toLowerCase().includes(term) ||
-      c.diagnosticoTecnologico.gargaloUrgente.toLowerCase().includes(term)
+    companies = companies.filter(
+      (c) =>
+        (c.nomeFantasia.valor || '').toLowerCase().includes(term) ||
+        (c.razaoSocial.valor || '').toLowerCase().includes(term) ||
+        (c.cnpj.valor || '').includes(term) ||
+        (c.cnaePrincipal.valor || '').includes(term) ||
+        (c.cnaeDescricao.valor || '').toLowerCase().includes(term) ||
+        (c.titularOuSocioPrincipal.valor?.nome || '').toLowerCase().includes(term) ||
+        (c.bairroRegiao.valor || '').toLowerCase().includes(term)
     );
   }
 
-  // Filtro por WhatsApp verificado
-  if (filters.apenasWhatsappValido) {
-    companies = companies.filter(c => c.contato.temWhatsappVerificado);
-  }
-
-  // Filtro por Porte
   if (filters.porte && filters.porte !== 'todos') {
-    companies = companies.filter(c => c.porte === filters.porte);
+    companies = companies.filter((c) => c.porte.valor === filters.porte);
   }
 
-  // Ordenação
   const sortMode = filters.ordenarPor || 'mais_recentes';
   if (sortMode === 'mais_recentes') {
-    companies.sort((a, b) => a.diasCriacao - b.diasCriacao);
-  } else if (sortMode === 'maior_score') {
-    companies.sort((a, b) => b.diagnosticoTecnologico.scoreSemSistema - a.diagnosticoTecnologico.scoreSemSistema);
+    companies.sort(
+      (a, b) => (a.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER) - (b.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER)
+    );
   } else if (sortMode === 'maior_capital') {
-    companies.sort((a, b) => b.capitalSocial - a.capitalSocial);
+    companies.sort((a, b) => (b.capitalSocial.valor ?? -1) - (a.capitalSocial.valor ?? -1));
+  } else if (sortMode === 'razao_social') {
+    companies.sort((a, b) => (a.razaoSocial.valor || '').localeCompare(b.razaoSocial.valor || ''));
   }
 
   return companies;
 }
 
 export function getRecentCompaniesStats(): RecentCompaniesStats {
-  const all = getGeneratedRecentCompanies();
+  const all = getRealRecentCompanies();
   const total = all.length;
+  const now = new Date().toISOString();
 
-  const criadas7 = all.filter(c => c.diasCriacao <= 7).length;
-  const criadas30 = all.filter(c => c.diasCriacao <= 30).length;
-  const criadas90 = all.filter(c => c.diasCriacao <= 90).length;
-  const criadasAno = all.filter(c => c.diasCriacao <= 365).length;
+  const criadas7 = all.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 7).length;
+  const criadas30 = all.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 30).length;
+  const criadas90 = all.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 90).length;
+  const criadasAno = all.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 365).length;
+  const possiveisContabilidades = all.filter(
+    (c) => c.contato.tipoContato.valor === 'possivel_contabilidade'
+  ).length;
 
-  const sumScore = all.reduce((acc, c) => acc + c.diagnosticoTecnologico.scoreSemSistema, 0);
-  const avgScore = total > 0 ? Math.round(sumScore / total) : 0;
+  // Setor mais ativo por contagem real da base
+  const sectorCounts = new Map<string, number>();
+  for (const c of all) {
+    if (c.setorRotulo.valor) {
+      sectorCounts.set(c.setorRotulo.valor, (sectorCounts.get(c.setorRotulo.valor) || 0) + 1);
+    }
+  }
 
-  const sumCapital = all.reduce((acc, c) => acc + c.capitalSocial, 0);
-  const avgCapital = total > 0 ? Math.round(sumCapital / total) : 0;
+  let topSector: string | null = null;
+  let topCount = 0;
+  for (const [sector, count] of sectorCounts.entries()) {
+    if (count > topCount) {
+      topSector = sector;
+      topCount = count;
+    }
+  }
+
+  const setorMaisAtivo = topSector
+    ? inferido({
+        valor: `${topSector} (${topCount})`,
+        fonte: 'Contagem real da base local (data/recent_companies.json)',
+        regra: 'Moda do campo setorRotulo entre empresas coletadas',
+        consultado_em: now,
+      })
+    : desconhecido<string>('Sem empresas reais cadastradas na base', now);
+
+  const capitals = all
+    .filter((c) => c.capitalSocial.status === 'verificado' && c.capitalSocial.valor !== null)
+    .map((c) => c.capitalSocial.valor!);
+
+  const capitalSocialMedio =
+    capitals.length > 0
+      ? inferido({
+          valor: Math.round(capitals.reduce((a, b) => a + b, 0) / capitals.length),
+          fonte: 'Contagem real da base local (data/recent_companies.json)',
+          regra: `Média aritmética de capitalSocial verificado (${capitals.length} empresas)`,
+          consultado_em: now,
+        })
+      : desconhecido<number>('Sem dados verificados de capital social na base', now);
 
   return {
     totalMapeadas: total,
@@ -90,9 +134,9 @@ export function getRecentCompaniesStats(): RecentCompaniesStats {
     criadasUltimos30Dias: criadas30,
     criadasUltimos90Dias: criadas90,
     criadasUltimoAno: criadasAno,
-    setorMaisAtivo: 'Alimentação & Gastronomia (Restaurantes e Lanchonetes)',
-    taxaMediaSemSistema: avgScore,
-    capitalSocialMedio: avgCapital,
+    setorMaisAtivo,
+    capitalSocialMedio,
+    possiveisContabilidades,
   };
 }
 
@@ -101,44 +145,51 @@ export function exportCompaniesToCsv(companies: RecentCompanyLead[]): string {
     'CNPJ',
     'Nome Fantasia',
     'Razao Social',
-    'Dias de Abertura',
+    'Situacao Cadastral',
     'Data Abertura',
+    'Dias de Abertura',
     'Setor',
     'CNAE Principal',
     'Descricao CNAE',
-    'Regiao/Bairro',
-    'Socio Administrador',
-    'Telefone WhatsApp',
-    'Email',
+    'Bairro/Regiao',
+    'Municipio',
+    'UF',
+    'Porte',
+    'Natureza Juridica',
     'Capital Social',
-    'Score Sem Sistema',
-    'Gargalo Operacional',
-    'Solucao Recomendada',
-    'Setup Sugerido R$',
-    'Mensalidade Sugerida R$'
+    'Titular ou Socio Principal',
+    'Telefone Cadastro',
+    'Email Cadastro',
+    'Tipo Contato',
+    'Possui Sistema',
+    'Status Abordagem',
   ];
 
-  const rows = companies.map(c => [
-    `"${c.cnpj}"`,
-    `"${c.nomeFantasia.replace(/"/g, '""')}"`,
-    `"${c.razaoSocial.replace(/"/g, '""')}"`,
-    c.diasCriacao,
-    c.dataAbertura,
-    `"${c.setorRotulo}"`,
-    `"${c.cnaePrincipal}"`,
-    `"${c.cnaeDescricao.replace(/"/g, '""')}"`,
-    `"${c.bairroRegiao}"`,
-    `"${c.socioPrincipal.nome}"`,
-    `"${c.contato.telefoneFormatado}"`,
-    `"${c.contato.email}"`,
-    c.capitalSocial,
-    `${c.diagnosticoTecnologico.scoreSemSistema}%`,
-    `"${c.diagnosticoTecnologico.gargaloUrgente.replace(/"/g, '""')}"`,
-    `"${c.diagnosticoTecnologico.solucaoImediataSugerida.replace(/"/g, '""')}"`,
-    c.diagnosticoTecnologico.ticketSetupSugerido,
-    c.diagnosticoTecnologico.ticketMensalSugerido,
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+
+  const rows = companies.map((c) => [
+    esc(formatProvenanceText(c.cnpj)),
+    esc(formatProvenanceText(c.nomeFantasia)),
+    esc(formatProvenanceText(c.razaoSocial)),
+    esc(formatProvenanceText(c.situacaoCadastral)),
+    esc(formatProvenanceText(c.dataAbertura)),
+    esc(formatProvenanceText(c.diasCriacao)),
+    esc(formatProvenanceText(c.setorRotulo)),
+    esc(formatProvenanceText(c.cnaePrincipal)),
+    esc(formatProvenanceText(c.cnaeDescricao)),
+    esc(formatProvenanceText(c.bairroRegiao)),
+    esc(formatProvenanceText(c.municipio)),
+    esc(formatProvenanceText(c.uf)),
+    esc(formatProvenanceText(c.porte)),
+    esc(formatProvenanceText(c.naturezaJuridica)),
+    esc(formatProvenanceText(c.capitalSocial)),
+    esc(c.titularOuSocioPrincipal.valor?.nome || 'Não verificado'),
+    esc(formatProvenanceText(c.contato.telefoneFormatado)),
+    esc(formatProvenanceText(c.contato.email)),
+    esc(formatProvenanceText(c.contato.tipoContato)),
+    esc(formatProvenanceText(c.diagnostico.possuiSistema)),
+    esc(c.abordagem.statusContato),
   ]);
 
-  return [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+  return [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
 }
-

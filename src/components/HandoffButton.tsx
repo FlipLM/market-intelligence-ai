@@ -59,7 +59,11 @@ export default function HandoffButton({ nicheId, nicheName }: HandoffButtonProps
             <div className="bg-[#101113] p-2.5 rounded border border-white/[0.04] space-y-1.5 text-xs text-[#a1a1a6]">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-[#85858b]">Google Maps Query:</span>
-                <span className="text-white font-mono">{result.data.googleMapsQuery}</span>
+                <span className="text-white font-mono">
+                  {typeof result.data.googleMapsQuery === 'string'
+                    ? result.data.googleMapsQuery
+                    : result.data.googleMapsQuery?.valor || 'Não verificado'}
+                </span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
                 <span className="text-[11px] font-mono text-[#85858b]">Pitch Inicial WhatsApp:</span>

@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import { 
-  NicheReport, 
-  CommercialFeedbackHistory, 
-  ScoringWeights 
+import {
+  NicheReport,
+  CommercialFeedbackHistory,
+  ScoringWeights,
+  DiscardedSyntheticNicheRecord,
 } from '@/types/market';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -20,11 +21,12 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   qualidadeEvidencias: 0.05,
 };
 
-interface DatabaseSchema {
+export interface DatabaseSchema {
   version: string;
   updatedAt: string;
   scoringWeights: ScoringWeights;
   niches: NicheReport[];
+  discardedSynthetic: DiscardedSyntheticNicheRecord[];
   commercialHistory: CommercialFeedbackHistory[];
 }
 
@@ -41,10 +43,11 @@ export function readDatabase(): DatabaseSchema {
     ensureDirectoryExistence(DB_FILE);
     if (!fs.existsSync(DB_FILE)) {
       const initialDb: DatabaseSchema = {
-        version: '1.0.0',
+        version: '2.0.0',
         updatedAt: new Date().toISOString(),
         scoringWeights: DEFAULT_WEIGHTS,
         niches: [],
+        discardedSynthetic: [],
         commercialHistory: [],
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
@@ -52,14 +55,23 @@ export function readDatabase(): DatabaseSchema {
     }
 
     const data = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(data) as DatabaseSchema;
+    const parsed = JSON.parse(data) as Partial<DatabaseSchema>;
+    return {
+      version: parsed.version || '2.0.0',
+      updatedAt: parsed.updatedAt || new Date().toISOString(),
+      scoringWeights: parsed.scoringWeights || DEFAULT_WEIGHTS,
+      niches: (parsed.niches || []).filter((n) => n.recordStatus !== 'descartado_sintetico'),
+      discardedSynthetic: parsed.discardedSynthetic || [],
+      commercialHistory: parsed.commercialHistory || [],
+    };
   } catch (err) {
     console.error('Erro ao ler banco de dados de inteligência de mercado:', err);
     return {
-      version: '1.0.0',
+      version: '2.0.0',
       updatedAt: new Date().toISOString(),
       scoringWeights: DEFAULT_WEIGHTS,
       niches: [],
+      discardedSynthetic: [],
       commercialHistory: [],
     };
   }
@@ -79,7 +91,12 @@ export function writeDatabase(db: DatabaseSchema): boolean {
 
 export function getNiches(): NicheReport[] {
   const db = readDatabase();
-  return db.niches || [];
+  return (db.niches || []).filter((n) => n.recordStatus === 'ativo');
+}
+
+export function getDiscardedSyntheticNiches(): DiscardedSyntheticNicheRecord[] {
+  const db = readDatabase();
+  return db.discardedSynthetic || [];
 }
 
 export function getNicheById(id: string): NicheReport | undefined {
@@ -90,7 +107,7 @@ export function getNicheById(id: string): NicheReport | undefined {
 export function saveNiche(niche: NicheReport): NicheReport {
   const db = readDatabase();
   const existingIdx = db.niches.findIndex((n) => n.id === niche.id);
-  
+
   if (existingIdx >= 0) {
     db.niches[existingIdx] = {
       ...niche,
@@ -109,7 +126,9 @@ export function getCommercialHistory(): CommercialFeedbackHistory[] {
   return db.commercialHistory || [];
 }
 
-export function saveCommercialFeedback(feedback: CommercialFeedbackHistory): CommercialFeedbackHistory {
+export function saveCommercialFeedback(
+  feedback: CommercialFeedbackHistory
+): CommercialFeedbackHistory {
   const db = readDatabase();
   db.commercialHistory.unshift(feedback);
   writeDatabase(db);
@@ -127,4 +146,3 @@ export function updateScoringWeights(weights: ScoringWeights): ScoringWeights {
   writeDatabase(db);
   return weights;
 }
-
