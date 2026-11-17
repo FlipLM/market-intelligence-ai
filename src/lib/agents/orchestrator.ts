@@ -11,6 +11,7 @@ import { generateFinancialScenarios } from '../simulator';
 import { runDecisionAnalystAgent } from './decisionAnalystAgent';
 import { runTechAuditorAgent } from './techAuditorAgent';
 import { runOutreachCopywriterAgent } from './outreachCopywriterAgent';
+import { aggregateNicheFromCollectedCnpjs } from '../nicheAggregation';
 import { desconhecido } from '@/types/provenance';
 
 export function emptyBaseAggregation(): NicheBaseAggregation {
@@ -26,16 +27,29 @@ export function emptyBaseAggregation(): NicheBaseAggregation {
   };
 }
 
-export function executeNicheResearch(input: DiscoveryInput): NicheReport {
+export async function executeNicheResearch(input: DiscoveryInput): Promise<NicheReport> {
   const now = new Date().toISOString();
   const weights = getScoringWeights();
 
-  const basicInfo = runNicheDiscoveryAgent(input);
+  const basicInfo = await runNicheDiscoveryAgent(input);
+  const primaryCnae = basicInfo.cnaes.valor?.[0] || input.cnae || null;
+
+  const { aggregation, matchedCount, probableDirectContactsCount } =
+    aggregateNicheFromCollectedCnpjs({
+      cnae: primaryCnae,
+      state: input.state,
+      city: input.city,
+    });
+
   const demand = runDemandIntelligenceAgent();
   const paidTraffic = runPaidTrafficAgent();
   const competition = runCompetitiveIntelligenceAgent();
   const opportunities = runSoftwareOpportunityAgent();
-  const commercialViability = runCommercialViabilityAgent();
+  const commercialViability = runCommercialViabilityAgent({
+    matchedCount,
+    probableDirectContactsCount,
+    collectedAt: now,
+  });
 
   const scoring = calculateNicheScore(
     {
@@ -48,7 +62,10 @@ export function executeNicheResearch(input: DiscoveryInput): NicheReport {
     weights
   );
 
-  const financialScenarios = generateFinancialScenarios();
+  const financialScenarios = generateFinancialScenarios({
+    prospectableCompanies: matchedCount,
+  });
+
   const decision = runDecisionAnalystAgent({
     basicInfo,
     viability: commercialViability,
@@ -63,7 +80,7 @@ export function executeNicheResearch(input: DiscoveryInput): NicheReport {
     createdAt: now,
     updatedAt: now,
     basicInfo,
-    baseAggregation: emptyBaseAggregation(),
+    baseAggregation: aggregation,
     demand,
     paidTraffic,
     competition,

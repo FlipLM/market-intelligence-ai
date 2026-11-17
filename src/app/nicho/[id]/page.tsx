@@ -6,6 +6,8 @@ import HandoffButton from '@/components/HandoffButton';
 import DownloadPdfButton from '@/components/DownloadPdfButton';
 import TechAuditSection from '@/components/TechAuditSection';
 import OutreachCopySection from '@/components/OutreachCopySection';
+import HypotheticalSimulator from '@/components/HypotheticalSimulator';
+import NicheEvidencePanel from '@/components/NicheEvidencePanel';
 import { formatProvenanceText } from '@/types/provenance';
 import {
   ChevronLeft,
@@ -14,11 +16,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   MapPin,
+  BarChart3,
 } from 'lucide-react';
 
 interface Props {
   params: Promise<{ id: string }>;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default async function NicheDetailPage({ params }: Props) {
   const { id } = await params;
@@ -30,6 +35,7 @@ export default async function NicheDetailPage({ params }: Props) {
 
   const {
     basicInfo,
+    baseAggregation,
     demand,
     paidTraffic,
     competition,
@@ -80,7 +86,7 @@ export default async function NicheDetailPage({ params }: Props) {
                 {formatProvenanceText(basicInfo.segment)}
               </span>
               <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]">
-                CNAE {cnaesDisplay}
+                CNAE {cnaesDisplay} ({basicInfo.cnaes.status})
               </span>
               <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
@@ -120,6 +126,96 @@ export default async function NicheDetailPage({ params }: Props) {
           </p>
         </div>
       </div>
+
+      {/* Agregação Real de CNPJs Coletados */}
+      <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Contagem Real na Base Coletada (CNPJs por CNAE / Município / Período)
+            </h3>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            {baseAggregation.totalEmpresasColetadas.status}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
+            <span className="text-[10px] text-slate-500 block">Total Coletado</span>
+            <strong className="text-lg font-mono text-slate-900 dark:text-white">
+              {formatProvenanceText(baseAggregation.totalEmpresasColetadas)}
+            </strong>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
+            <span className="text-[10px] text-slate-500 block">Abertas ≤ 30d</span>
+            <strong className="text-lg font-mono text-slate-900 dark:text-white">
+              {formatProvenanceText(baseAggregation.abertasUltimos30Dias)}
+            </strong>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
+            <span className="text-[10px] text-slate-500 block">Abertas ≤ 90d</span>
+            <strong className="text-lg font-mono text-slate-900 dark:text-white">
+              {formatProvenanceText(baseAggregation.abertasUltimos90Dias)}
+            </strong>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
+            <span className="text-[10px] text-slate-500 block">Abertas ≤ 365d</span>
+            <strong className="text-lg font-mono text-slate-900 dark:text-white">
+              {formatProvenanceText(baseAggregation.abertasUltimos365Dias)}
+            </strong>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
+            <span className="text-[10px] text-slate-500 block">Taxa Abertura/Mês</span>
+            <strong className="text-lg font-mono text-slate-900 dark:text-white">
+              {formatProvenanceText(baseAggregation.taxaAberturaMensal)}
+            </strong>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+            <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+              Concentração por Bairro (Base Coletada)
+            </span>
+            {baseAggregation.concentracaoPorBairro.valor &&
+            baseAggregation.concentracaoPorBairro.valor.length > 0 ? (
+              <ul className="space-y-1 font-mono">
+                {baseAggregation.concentracaoPorBairro.valor.slice(0, 8).map((b) => (
+                  <li key={b.bairro} className="flex justify-between">
+                    <span>{b.bairro}</span>
+                    <strong>{b.quantidade}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-slate-500">Não verificado (sem empresas coletadas)</span>
+            )}
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+            <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+              Distribuição por Porte (Base Coletada)
+            </span>
+            {baseAggregation.distribuicaoPorPorte.valor &&
+            baseAggregation.distribuicaoPorPorte.valor.length > 0 ? (
+              <ul className="space-y-1 font-mono">
+                {baseAggregation.distribuicaoPorPorte.valor.map((p) => (
+                  <li key={p.porte} className="flex justify-between">
+                    <span>{p.porte}</span>
+                    <strong>{p.quantidade}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-slate-500">Não verificado (sem empresas coletadas)</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <NicheEvidencePanel nicheId={niche.id} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 space-y-3">
@@ -166,6 +262,8 @@ export default async function NicheDetailPage({ params }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
+          <HypotheticalSimulator nicheId={niche.id} initialScenario={financialScenarios[0]} />
+
           <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -206,38 +304,6 @@ export default async function NicheDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-
-          <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Simulador Financeiro (CENÁRIO HIPOTÉTICO)
-              </h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                Não é previsão
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {financialScenarios.map((scen, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] rounded-xl p-4 space-y-2"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-500 dark:text-slate-400 uppercase">
-                      {scen.name}
-                    </span>
-                    <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                      {scen.dealsClosed} contratos
-                    </span>
-                  </div>
-                  <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
-                    R$ {(scen.upfrontRevenue + scen.firstYearArr).toLocaleString('pt-BR')}
-                  </div>
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400">{scen.disclaimer}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="space-y-5">
@@ -250,27 +316,33 @@ export default async function NicheDetailPage({ params }: Props) {
 
           <div className="glass-panel rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 space-y-3">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Tráfego Pago ({paidTraffic.averageCpc.status})
+              Demanda, Concorrência &amp; Faturamento
             </h3>
             <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span>Demanda (0-100):</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  {formatProvenanceText(demand.overallDemandScore, 'Não verificado: requer pesquisa manual')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span>Saturação Competitiva:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatProvenanceText(competition.marketSaturation, 'Não verificado: requer pesquisa manual')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span>Faturamento Médio:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatProvenanceText(commercialViability.averageCompanyRevenue, 'Não verificado: requer pesquisa manual')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
                 <span>CPC Médio:</span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {paidTraffic.averageCpc.valor !== null
                     ? `R$ ${paidTraffic.averageCpc.valor.toFixed(2)}`
-                    : 'Não verificado'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
-                <span>Disputa:</span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {formatProvenanceText(paidTraffic.auctionCompetition)}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span>Dificuldade:</span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {formatProvenanceText(paidTraffic.acquisitionDifficulty)}
+                    : 'Não verificado: requer pesquisa manual'}
                 </span>
               </div>
             </div>
@@ -283,7 +355,7 @@ export default async function NicheDetailPage({ params }: Props) {
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">
             Evidências Registradas
           </h3>
-          <span className="text-xs text-slate-500 font-mono">Somente fontes reais</span>
+          <span className="text-xs text-slate-500 font-mono">Somente fontes citadas/reais</span>
         </div>
 
         {[

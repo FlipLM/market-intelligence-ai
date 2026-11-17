@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const report = executeNicheResearch({
+    const report = await executeNicheResearch({
       nicheQuery: nicheQuery.trim(),
       segment,
       state,

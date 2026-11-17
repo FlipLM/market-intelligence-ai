@@ -17,9 +17,16 @@ export default function TechAuditSection({ audit }: TechAuditSectionProps) {
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">{audit.disclaimer}</p>
         </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-          {audit.verdict.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {audit.isAiHypothesis && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+              Hipótese gerada por IA
+            </span>
+          )}
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            {audit.verdict.status}
+          </span>
+        </div>
       </div>
 
       <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
