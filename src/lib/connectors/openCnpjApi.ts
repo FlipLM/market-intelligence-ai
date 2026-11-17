@@ -5,13 +5,15 @@ import {
   CnaeSecondaryItem,
   QsaPartner,
   PrincipalHolder,
-  TipoContato,
 } from '@/types/recentCompanies';
 import { verificado, inferido, desconhecido, ProvenanceField } from '@/types/provenance';
+import { fetchJsonWithRetryAndCache } from './httpClient';
+import { fetchIbgeCnaeDescription, fetchIbgeMunicipioInfo } from './ibge';
+import { classifyContactOrigin } from './contactClassifier';
 
 export interface BrasilApiCnpjResponse {
   cnpj: string;
-  razao_social: string;
+  razao_social?: string;
   nome_fantasia?: string;
   situacao_cadastral?: number;
   descricao_situacao_cadastral?: string;
@@ -34,6 +36,7 @@ export interface BrasilApiCnpjResponse {
   descricao_porte?: string;
   natureza_juridica?: string;
   codigo_natureza_juridica?: number;
+  opcao_pelo_mei?: boolean | null;
   qsa?: Array<{
     nome_socio: string;
     qualificacao_socio: string;
@@ -131,9 +134,27 @@ export function inferSectorFromCnae(
   return { sector: 'outros', label: 'Outros Setores' };
 }
 
+function isMeiOrIndividualEntrepreneur(apiData: BrasilApiCnpjResponse): boolean {
+  if (apiData.opcao_pelo_mei === true) return true;
+  if (apiData.codigo_natureza_juridica === 2135) return true;
+  const nat = (apiData.natureza_juridica || '').toLowerCase();
+  return (
+    nat.includes('empresário (individual)') ||
+    nat.includes('empresario (individual)') ||
+    nat.includes('213-5') ||
+    nat.includes('microempreendedor individual')
+  );
+}
+
 export function parseBrasilApiResponseToLead(
   apiData: BrasilApiCnpjResponse,
-  apiMeta: { fonte: string; url_ou_api: string; consultado_em?: string }
+  apiMeta: { fonte: string; url_ou_api: string; consultado_em?: string },
+  ibgeEnrichment?: {
+    cnaeDescricaoIbge?: ProvenanceField<string>;
+    municipioIbge?: ProvenanceField<string>;
+    codigoIbgeMunicipio?: ProvenanceField<number>;
+  },
+  existingLeadsInBase: RecentCompanyLead[] = []
 ): RecentCompanyLead {
   const consultadoEm = apiMeta.consultado_em ?? new Date().toISOString();
   const fonte = apiMeta.fonte;
@@ -155,41 +176,50 @@ export function parseBrasilApiResponseToLead(
 
   if (dataAberturaField.status === 'verificado' && dataAberturaField.valor) {
     const openingDate = new Date(`${dataAberturaField.valor}T00:00:00Z`);
-    const today = new Date();
-    const diffMs = today.getTime() - openingDate.getTime();
-    const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    if (!Number.isNaN(openingDate.getTime())) {
+      const today = new Date();
+      const diffMs = today.getTime() - openingDate.getTime();
+      const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 
-    diasCriacaoField = inferido({
-      valor: dias,
-      fonte,
-      url_ou_api: urlApi,
-      consultado_em: consultadoEm,
-      regra: 'diasCriacao = floor((data_consulta - data_inicio_atividade) / 86400000ms)',
-    });
+      diasCriacaoField = inferido({
+        valor: dias,
+        fonte,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+        regra: 'diasCriacao = floor((data_consulta - data_inicio_atividade) / 86400000ms)',
+      });
 
-    let faixa: Exclude<CompanyTimeWindow, 'todos'> = '365_dias';
-    if (dias <= 7) faixa = '7_dias';
-    else if (dias <= 15) faixa = '15_dias';
-    else if (dias <= 30) faixa = '30_dias';
-    else if (dias <= 60) faixa = '60_dias';
-    else if (dias <= 90) faixa = '90_dias';
-    else if (dias <= 180) faixa = '180_dias';
+      let faixa: Exclude<CompanyTimeWindow, 'todos'> = '365_dias';
+      if (dias <= 7) faixa = '7_dias';
+      else if (dias <= 15) faixa = '15_dias';
+      else if (dias <= 30) faixa = '30_dias';
+      else if (dias <= 60) faixa = '60_dias';
+      else if (dias <= 90) faixa = '90_dias';
+      else if (dias <= 180) faixa = '180_dias';
 
-    faixaTempoField = inferido({
-      valor: faixa,
-      fonte,
-      url_ou_api: urlApi,
-      consultado_em: consultadoEm,
-      regra: 'Classificação determinística por janela de dias de atividade',
-    });
+      faixaTempoField = inferido({
+        valor: faixa,
+        fonte,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+        regra: 'Classificação determinística por janela de dias de atividade',
+      });
 
-    rotuloEstagioField = inferido({
-      valor: dias === 1 ? 'Aberta há 1 dia' : `Aberta há ${dias} dias`,
-      fonte,
-      url_ou_api: urlApi,
-      consultado_em: consultadoEm,
-      regra: 'Rótulo descritivo derivado diretamente de diasCriacao',
-    });
+      rotuloEstagioField = inferido({
+        valor: dias === 1 ? 'Aberta há 1 dia' : `Aberta há ${dias} dias`,
+        fonte,
+        url_ou_api: urlApi,
+        consultado_em: consultadoEm,
+        regra: 'Rótulo descritivo derivado diretamente de diasCriacao (sem percentuais)',
+      });
+    } else {
+      diasCriacaoField = desconhecido<number>(`data_inicio_atividade inválida em ${fonte}`, consultadoEm);
+      faixaTempoField = desconhecido<Exclude<CompanyTimeWindow, 'todos'>>(
+        `data_inicio_atividade inválida em ${fonte}`,
+        consultadoEm
+      );
+      rotuloEstagioField = desconhecido<string>(`data_inicio_atividade inválida em ${fonte}`, consultadoEm);
+    }
   } else {
     diasCriacaoField = desconhecido<number>(`data_inicio_atividade ausente em ${fonte}`, consultadoEm);
     faixaTempoField = desconhecido<Exclude<CompanyTimeWindow, 'todos'>>(
@@ -204,13 +234,17 @@ export function parseBrasilApiResponseToLead(
     ? verificado({ valor: cnaeCode, fonte, url_ou_api: urlApi, consultado_em: consultadoEm })
     : desconhecido<string>(`cnae_fiscal ausente em ${fonte}`, consultadoEm);
 
-  const cnaeDescField = strField(apiData.cnae_fiscal_descricao);
+  const cnaeDescFromReceita = strField(apiData.cnae_fiscal_descricao);
+  const cnaeDescField =
+    ibgeEnrichment?.cnaeDescricaoIbge?.status === 'verificado'
+      ? ibgeEnrichment.cnaeDescricaoIbge
+      : cnaeDescFromReceita;
 
   const cnaesSecField: ProvenanceField<CnaeSecondaryItem[]> = Array.isArray(apiData.cnaes_secundarios)
     ? verificado({
         valor: apiData.cnaes_secundarios
-          .filter((c) => c && c.codigo)
-          .map((c) => ({ codigo: formatCnae(c.codigo), descricao: c.descricao || '' })),
+          .filter((c) => c && c.codigo && Number(c.codigo) !== 0)
+          .map((c) => ({ codigo: formatCnae(c.codigo), descricao: (c.descricao || '').trim() })),
         fonte,
         url_ou_api: urlApi,
         consultado_em: consultadoEm,
@@ -220,7 +254,7 @@ export function parseBrasilApiResponseToLead(
   let setorField: ProvenanceField<CompanySector>;
   let setorRotuloField: ProvenanceField<string>;
   if (cnaeCode) {
-    const inferred = inferSectorFromCnae(cnaeCode, apiData.cnae_fiscal_descricao || '');
+    const inferred = inferSectorFromCnae(cnaeCode, cnaeDescField.valor || '');
     setorField = inferido({
       valor: inferred.sector,
       fonte,
@@ -255,7 +289,7 @@ export function parseBrasilApiResponseToLead(
           fonte,
           url_ou_api: urlApi,
           consultado_em: consultadoEm,
-          regra: 'nome_fantasia não informado; exibindo razao_social verificada',
+          regra: 'nome_fantasia não informado no cadastro; exibindo razao_social verificada',
         })
       : desconhecido<string>(`nome_fantasia ausente em ${fonte}`, consultadoEm);
 
@@ -274,7 +308,12 @@ export function parseBrasilApiResponseToLead(
       : desconhecido<number>(`capital_social ausente em ${fonte}`, consultadoEm);
 
   const ufField = strField(apiData.uf);
-  const municipioField = strField(apiData.municipio);
+  const municipioReceitaField = strField(apiData.municipio);
+  const municipioField =
+    ibgeEnrichment?.municipioIbge?.status === 'verificado'
+      ? ibgeEnrichment.municipioIbge
+      : municipioReceitaField;
+
   const bairroField = strField(apiData.bairro);
   const logradouroField = strField(apiData.logradouro);
   const numeroField = strField(apiData.numero);
@@ -328,33 +367,48 @@ export function parseBrasilApiResponseToLead(
       url_ou_api: urlApi,
       consultado_em: consultadoEm,
     });
+  } else if (isMeiOrIndividualEntrepreneur(apiData) && razaoSocialField.valor) {
+    titularField = inferido({
+      valor: {
+        nome: razaoSocialField.valor,
+        qualificacao: 'Titular (MEI / Empresário Individual)',
+        origem: 'mei_ei_titular',
+      },
+      fonte,
+      url_ou_api: urlApi,
+      consultado_em: consultadoEm,
+      regra: 'MEI/EI sem QSA: titular é a própria empresa (razão social)',
+    });
   } else {
     titularField = desconhecido<PrincipalHolder>(
-      `Sem QSA em ${fonte} (comum em MEI/EI; verificar titularidade na abordagem)`,
+      `QSA ausente em ${fonte} e natureza jurídica não confirmada como MEI/EI`,
       consultadoEm
     );
   }
 
-  const tel1Fmt = formatPhoneBr(apiData.ddd_telefone_1);
-  const tel2Fmt = formatPhoneBr(apiData.ddd_telefone_2);
-  const tel1Field = apiData.ddd_telefone_1?.trim()
+  const tel1Digits = apiData.ddd_telefone_1?.replace(/\D/g, '') || '';
+  const tel2Digits = apiData.ddd_telefone_2?.replace(/\D/g, '') || '';
+
+  const tel1Field = tel1Digits.length >= 10
     ? verificado({
-        valor: apiData.ddd_telefone_1.replace(/\D/g, ''),
-        fonte: `${fonte} (consta no cadastro público)`,
+        valor: tel1Digits,
+        fonte: `${fonte} (consta no cadastro público; não confirmado se é do sócio)`,
         url_ou_api: urlApi,
         consultado_em: consultadoEm,
       })
     : desconhecido<string>(`ddd_telefone_1 ausente em ${fonte}`, consultadoEm);
 
-  const tel2Field = apiData.ddd_telefone_2?.trim()
+  const tel2Field = tel2Digits.length >= 10
     ? verificado({
-        valor: apiData.ddd_telefone_2.replace(/\D/g, ''),
-        fonte: `${fonte} (consta no cadastro público)`,
+        valor: tel2Digits,
+        fonte: `${fonte} (consta no cadastro público; não confirmado se é do sócio)`,
         url_ou_api: urlApi,
         consultado_em: consultadoEm,
       })
     : desconhecido<string>(`ddd_telefone_2 ausente em ${fonte}`, consultadoEm);
 
+  const tel1Fmt = formatPhoneBr(apiData.ddd_telefone_1);
+  const tel2Fmt = formatPhoneBr(apiData.ddd_telefone_2);
   const telefoneFormatadoField = tel1Fmt
     ? inferido({
         valor: tel1Fmt,
@@ -373,14 +427,17 @@ export function parseBrasilApiResponseToLead(
       })
     : desconhecido<string>(`Telefone ausente em ${fonte}`, consultadoEm);
 
-  const emailField = strField(apiData.email || undefined);
+  const emailField =
+    apiData.email && apiData.email.trim() !== ''
+      ? verificado({
+          valor: apiData.email.trim(),
+          fonte: `${fonte} (consta no cadastro público; não confirmado se é do sócio)`,
+          url_ou_api: urlApi,
+          consultado_em: consultadoEm,
+        })
+      : desconhecido<string>(`email ausente em ${fonte}`, consultadoEm);
 
-  const tipoContatoField: ProvenanceField<TipoContato> =
-    tel1Field.status === 'verificado' || emailField.status === 'verificado'
-      ? desconhecido<TipoContato>('Classificação de contato empresa vs. contabilidade pendente de heurística', consultadoEm)
-      : desconhecido<TipoContato>('Sem telefone ou e-mail no cadastro', consultadoEm);
-
-  return {
+  const baseLead: RecentCompanyLead = {
     id: `cnpj-${cnpjDigits}`,
     recordStatus: 'ativo',
     cnpj: verificado({
@@ -403,6 +460,9 @@ export function parseBrasilApiResponseToLead(
     cnaesSecundarios: cnaesSecField,
     uf: ufField,
     municipio: municipioField,
+    codigoIbgeMunicipio:
+      ibgeEnrichment?.codigoIbgeMunicipio ??
+      desconhecido<number>('Código IBGE do município não consultado', consultadoEm),
     bairroRegiao: bairroField,
     logradouro: logradouroField,
     numero: numeroField,
@@ -419,12 +479,12 @@ export function parseBrasilApiResponseToLead(
       telefone2: tel2Field,
       telefoneFormatado: telefoneFormatadoField,
       email: emailField,
-      tipoContato: tipoContatoField,
-      motivoTipoContato: desconhecido<string>('Classificação de contato pendente', consultadoEm),
+      tipoContato: desconhecido<never>('Classificação pendente', consultadoEm),
+      motivoTipoContato: desconhecido<string>('Classificação pendente', consultadoEm),
     },
     diagnostico: {
       possuiSistema: desconhecido<'sim' | 'nao' | 'desconhecido'>(
-        'Não verificado — confirmar em abordagem comercial',
+        'Não verificado — confirmar na conversa comercial',
         null
       ),
       observacaoSistema: desconhecido<string>('Sem diagnóstico confirmado', null),
@@ -437,54 +497,125 @@ export function parseBrasilApiResponseToLead(
       motivoBloqueio: null,
     },
   };
+
+  const contactClassification = classifyContactOrigin(baseLead, existingLeadsInBase);
+  baseLead.contato.tipoContato = contactClassification.tipoContato;
+  baseLead.contato.motivoTipoContato = contactClassification.motivoTipoContato;
+
+  return baseLead;
 }
 
 /**
- * Consulta um CNPJ real na API aberta (BrasilAPI com fallback para MinhaReceita)
+ * Consulta um CNPJ real na API aberta (BrasilAPI com fallback para MinhaReceita + enriquecimento IBGE)
+ * Respeita rate limit, cache e retry com backoff. Nunca inventa fallback em erro.
  */
-export async function fetchCnpjFromOpenApi(cnpj: string): Promise<RecentCompanyLead | null> {
+export async function fetchCnpjFromOpenApi(
+  cnpj: string,
+  existingLeadsInBase: RecentCompanyLead[] = []
+): Promise<RecentCompanyLead | null> {
   const clean = cnpj.replace(/\D/g, '');
   if (clean.length !== 14) {
     throw new Error('CNPJ inválido. Forneça exatamente 14 dígitos numéricos.');
   }
 
+  let rawData: BrasilApiCnpjResponse | null = null;
+  let apiMeta: { fonte: string; url_ou_api: string; consultado_em: string } | null = null;
+
   // Provedor 1: BrasilAPI
-  try {
-    const url = `https://brasilapi.com.br/api/cnpj/v1/${clean}`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
+  const brasilApiUrl = `https://brasilapi.com.br/api/cnpj/v1/${clean}`;
+  const brasilRes = await fetchJsonWithRetryAndCache<BrasilApiCnpjResponse>(brasilApiUrl, {
+    ttlMs: 24 * 60 * 60 * 1000,
+    maxRetries: 3,
+  });
+
+  if (brasilRes.ok && brasilRes.data) {
+    rawData = brasilRes.data;
+    apiMeta = {
+      fonte: 'Receita Federal via BrasilAPI',
+      url_ou_api: brasilApiUrl,
+      consultado_em: brasilRes.fetchedAt,
+    };
+  } else {
+    // Provedor 2: MinhaReceita (fallback oficial)
+    const minhaReceitaUrl = `https://minhareceita.org/${clean}`;
+    const mrRes = await fetchJsonWithRetryAndCache<BrasilApiCnpjResponse>(minhaReceitaUrl, {
+      ttlMs: 24 * 60 * 60 * 1000,
+      maxRetries: 3,
     });
 
-    if (res.ok) {
-      const data: BrasilApiCnpjResponse = await res.json();
-      return parseBrasilApiResponseToLead(data, {
-        fonte: 'Receita Federal via BrasilAPI',
-        url_ou_api: url,
-      });
-    }
-  } catch (err) {
-    console.warn(`[OpenCnpjApi] BrasilAPI falhou para ${clean}, tentando MinhaReceita...`, err);
-  }
-
-  // Provedor 2: MinhaReceita (fallback)
-  try {
-    const url = `https://minhareceita.org/${clean}`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-
-    if (res.ok) {
-      const data: BrasilApiCnpjResponse = await res.json();
-      return parseBrasilApiResponseToLead(data, {
+    if (mrRes.ok && mrRes.data) {
+      rawData = mrRes.data;
+      apiMeta = {
         fonte: 'Receita Federal via MinhaReceita',
-        url_ou_api: url,
-      });
+        url_ou_api: minhaReceitaUrl,
+        consultado_em: mrRes.fetchedAt,
+      };
     }
-  } catch (err) {
-    console.error(`[OpenCnpjApi] MinhaReceita também falhou para ${clean}:`, err);
   }
 
-  return null;
+  if (!rawData || !apiMeta) {
+    return null;
+  }
+
+  // Enriquecimento opcional via IBGE (CNAE oficial e município) - falha silenciosa para 'desconhecido'
+  const [cnaeDescricaoIbge, municipioInfo] = await Promise.all([
+    rawData.cnae_fiscal
+      ? fetchIbgeCnaeDescription(rawData.cnae_fiscal)
+      : Promise.resolve(desconhecido<string>('cnae_fiscal ausente na Receita')),
+    fetchIbgeMunicipioInfo(rawData.uf, rawData.municipio),
+  ]);
+
+  return parseBrasilApiResponseToLead(
+    rawData,
+    apiMeta,
+    {
+      cnaeDescricaoIbge,
+      municipioIbge: municipioInfo.municipioOficial,
+      codigoIbgeMunicipio: municipioInfo.codigoIbge,
+    },
+    existingLeadsInBase
+  );
+}
+
+export async function fetchCnpjsBatchFromOpenApi(
+  cnpjs: string[],
+  existingLeadsInBase: RecentCompanyLead[] = []
+): Promise<{
+  imported: RecentCompanyLead[];
+  failed: Array<{ cnpj: string; reason: string }>;
+}> {
+  const uniqueClean = Array.from(
+    new Set(cnpjs.map((c) => c.replace(/\D/g, '')).filter((c) => c.length > 0))
+  );
+
+  const imported: RecentCompanyLead[] = [];
+  const failed: Array<{ cnpj: string; reason: string }> = [];
+  const combinedContext = [...existingLeadsInBase];
+
+  for (const clean of uniqueClean) {
+    if (clean.length !== 14) {
+      failed.push({ cnpj: clean, reason: 'CNPJ não possui 14 dígitos numéricos.' });
+      continue;
+    }
+
+    try {
+      const lead = await fetchCnpjFromOpenApi(clean, combinedContext);
+      if (!lead) {
+        failed.push({
+          cnpj: clean,
+          reason: 'Não localizado na BrasilAPI/MinhaReceita ou indisponível após retries.',
+        });
+        continue;
+      }
+      imported.push(lead);
+      combinedContext.push(lead);
+    } catch (err: unknown) {
+      failed.push({
+        cnpj: clean,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return { imported, failed };
 }

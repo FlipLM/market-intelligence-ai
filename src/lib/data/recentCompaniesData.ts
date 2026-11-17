@@ -1,6 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { RecentCompanyLead } from '@/types/recentCompanies';
+import {
+  RecentCompanyLead,
+  PossuiSistemaStatus,
+  AbordagemStatus,
+} from '@/types/recentCompanies';
+import { reclassifyAllContacts } from '@/lib/connectors/contactClassifier';
+import { verificado, desconhecido } from '@/types/provenance';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const COMPANIES_FILE = path.join(DATA_DIR, 'recent_companies.json');
@@ -73,6 +79,34 @@ export function getRealRecentCompanies(): RecentCompanyLead[] {
   return readRecentCompaniesStore().companies;
 }
 
+function applyDoNotContactFlags(store: RecentCompaniesStore): void {
+  const blockedCnpjs = new Set(store.doNotContactCnpjs.map((c) => c.replace(/\D/g, '')));
+  const blockedPhones = new Set(store.doNotContactPhones.map((p) => p.replace(/\D/g, '')));
+
+  store.companies = store.companies.map((c) => {
+    const cleanCnpj = (c.cnpj.valor || '').replace(/\D/g, '');
+    const p1 = (c.contato.telefone1.valor || '').replace(/\D/g, '');
+    const p2 = (c.contato.telefone2.valor || '').replace(/\D/g, '');
+    const isBlocked =
+      blockedCnpjs.has(cleanCnpj) ||
+      (p1 !== '' && blockedPhones.has(p1)) ||
+      (p2 !== '' && blockedPhones.has(p2)) ||
+      c.abordagem.statusContato === 'recusou';
+
+    if (!isBlocked) return c;
+    return {
+      ...c,
+      abordagem: {
+        ...c.abordagem,
+        naoContatar: true,
+        motivoBloqueio:
+          c.abordagem.motivoBloqueio ||
+          'Bloqueado na lista "não contatar" (recusa ou pedido de saída).',
+      },
+    };
+  });
+}
+
 export function upsertRecentCompany(lead: RecentCompanyLead): RecentCompanyLead {
   const store = readRecentCompaniesStore();
   const cleanCnpj = (lead.cnpj.valor || '').replace(/\D/g, '');
@@ -81,13 +115,24 @@ export function upsertRecentCompany(lead: RecentCompanyLead): RecentCompanyLead 
   );
 
   if (idx >= 0) {
-    store.companies[idx] = lead;
+    // Preserva diagnóstico manual e histórico de abordagem já registrados
+    const existing = store.companies[idx];
+    store.companies[idx] = {
+      ...lead,
+      diagnostico:
+        existing.diagnostico.possuiSistema.status === 'verificado'
+          ? existing.diagnostico
+          : lead.diagnostico,
+      abordagem: existing.abordagem,
+    };
   } else {
     store.companies.unshift(lead);
   }
 
+  store.companies = reclassifyAllContacts(store.companies);
+  applyDoNotContactFlags(store);
   writeRecentCompaniesStore(store);
-  return lead;
+  return store.companies.find((c) => c.id === lead.id) || lead;
 }
 
 export function upsertRecentCompaniesBatch(leads: RecentCompanyLead[]): number {
@@ -101,13 +146,110 @@ export function upsertRecentCompaniesBatch(leads: RecentCompanyLead[]): number {
       (c) => (c.cnpj.valor || '').replace(/\D/g, '') === cleanCnpj || c.id === lead.id
     );
     if (idx >= 0) {
-      store.companies[idx] = lead;
+      const existing = store.companies[idx];
+      store.companies[idx] = {
+        ...lead,
+        diagnostico:
+          existing.diagnostico.possuiSistema.status === 'verificado'
+            ? existing.diagnostico
+            : lead.diagnostico,
+        abordagem: existing.abordagem,
+      };
     } else {
       store.companies.unshift(lead);
     }
     addedOrUpdated++;
   }
 
+  store.companies = reclassifyAllContacts(store.companies);
+  applyDoNotContactFlags(store);
   writeRecentCompaniesStore(store);
   return addedOrUpdated;
+}
+
+export function updateRecentCompanyManualFields(
+  id: string,
+  updates: {
+    possuiSistema?: PossuiSistemaStatus;
+    observacaoSistema?: string;
+    statusContato?: AbordagemStatus;
+    naoContatar?: boolean;
+    motivoBloqueio?: string | null;
+    registrarPrimeiroContato?: boolean;
+    registrarFollowup?: boolean;
+  }
+): RecentCompanyLead | null {
+  const store = readRecentCompaniesStore();
+  const idx = store.companies.findIndex((c) => c.id === id);
+  if (idx < 0) return null;
+
+  const current = store.companies[idx];
+  const now = new Date().toISOString();
+
+  let diagnostico = current.diagnostico;
+  if (updates.possuiSistema) {
+    diagnostico = {
+      possuiSistema:
+        updates.possuiSistema === 'desconhecido'
+          ? desconhecido<PossuiSistemaStatus>('Não verificado — confirmar na conversa comercial', now)
+          : verificado({
+              valor: updates.possuiSistema,
+              fonte: 'Confirmação manual em abordagem comercial',
+              consultado_em: now,
+            }),
+      observacaoSistema:
+        updates.observacaoSistema && updates.observacaoSistema.trim() !== ''
+          ? verificado({
+              valor: updates.observacaoSistema.trim(),
+              fonte: 'Anotação manual do operador',
+              consultado_em: now,
+            })
+          : current.diagnostico.observacaoSistema,
+    };
+  }
+
+  const abordagem = { ...current.abordagem };
+  if (updates.registrarPrimeiroContato) {
+    abordagem.statusContato = 'primeiro_contato_enviado';
+    abordagem.primeiroContatoEm = abordagem.primeiroContatoEm || now;
+  }
+  if (updates.registrarFollowup) {
+    abordagem.statusContato = 'followup_enviado';
+    abordagem.followupEnviadoEm = now;
+  }
+  if (updates.statusContato) {
+    abordagem.statusContato = updates.statusContato;
+  }
+  if (updates.naoContatar !== undefined) {
+    abordagem.naoContatar = updates.naoContatar;
+  }
+  if (updates.motivoBloqueio !== undefined) {
+    abordagem.motivoBloqueio = updates.motivoBloqueio;
+  }
+
+  if (abordagem.statusContato === 'recusou' || abordagem.naoContatar) {
+    abordagem.naoContatar = true;
+    const cleanCnpj = (current.cnpj.valor || '').replace(/\D/g, '');
+    const p1 = (current.contato.telefone1.valor || '').replace(/\D/g, '');
+    const p2 = (current.contato.telefone2.valor || '').replace(/\D/g, '');
+    if (cleanCnpj && !store.doNotContactCnpjs.includes(cleanCnpj)) {
+      store.doNotContactCnpjs.push(cleanCnpj);
+    }
+    if (p1 && !store.doNotContactPhones.includes(p1)) {
+      store.doNotContactPhones.push(p1);
+    }
+    if (p2 && !store.doNotContactPhones.includes(p2)) {
+      store.doNotContactPhones.push(p2);
+    }
+  }
+
+  store.companies[idx] = {
+    ...current,
+    diagnostico,
+    abordagem,
+  };
+
+  applyDoNotContactFlags(store);
+  writeRecentCompaniesStore(store);
+  return store.companies[idx];
 }

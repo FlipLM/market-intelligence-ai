@@ -10,23 +10,27 @@ import {
   MessageSquare,
   X,
   Cpu,
+  AlertTriangle,
 } from 'lucide-react';
-import { RecentCompanyLead } from '@/types/recentCompanies';
+import { RecentCompanyLead, PossuiSistemaStatus } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
 
 interface RecentCompanyDetailsModalProps {
   company: RecentCompanyLead | null;
   onClose: () => void;
   onOpenWhatsApp: (company: RecentCompanyLead) => void;
+  onCompanyUpdated?: (updated: RecentCompanyLead) => void;
 }
 
 export default function RecentCompanyDetailsModal({
   company,
   onClose,
   onOpenWhatsApp,
+  onCompanyUpdated,
 }: RecentCompanyDetailsModalProps) {
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState<string | null>(null);
+  const [savingSystem, setSavingSystem] = useState(false);
 
   if (!company) return null;
 
@@ -46,6 +50,27 @@ export default function RecentCompanyDetailsModal({
       setExporting(false);
     }
   };
+
+  const handleUpdatePossuiSistema = async (status: PossuiSistemaStatus) => {
+    try {
+      setSavingSystem(true);
+      const res = await fetch(`/api/recent-companies/${company.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ possuiSistema: status }),
+      });
+      const data = await res.json();
+      if (data.success && data.data && onCompanyUpdated) {
+        onCompanyUpdated(data.data);
+      }
+    } finally {
+      setSavingSystem(false);
+    }
+  };
+
+  const currentSystemValue: PossuiSistemaStatus =
+    company.diagnostico.possuiSistema.valor || 'desconhecido';
+  const isPossibleAccounting = company.contato.tipoContato.valor === 'possivel_contabilidade';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -79,15 +104,16 @@ export default function RecentCompanyDetailsModal({
           </button>
         </div>
 
+        {/* Confirmação manual de possui_sistema (substitui probabilidades inventadas) */}
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Cpu className="w-4 h-4" />
               </span>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Uso de Sistema Atual
+                  Possui Sistema Instalado?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {company.diagnostico.possuiSistema.fonte}
@@ -95,11 +121,27 @@ export default function RecentCompanyDetailsModal({
               </div>
             </div>
 
-            <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-200">
-              {company.diagnostico.possuiSistema.status === 'desconhecido'
-                ? 'Não verificado'
-                : formatProvenanceText(company.diagnostico.possuiSistema)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {(['desconhecido', 'nao', 'sim'] as PossuiSistemaStatus[]).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={savingSystem}
+                  onClick={() => handleUpdatePossuiSistema(opt)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                    currentSystemValue === opt
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {opt === 'desconhecido'
+                    ? 'Não verificado'
+                    : opt === 'nao'
+                    ? 'Não possui'
+                    : 'Sim, possui'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
@@ -136,13 +178,20 @@ export default function RecentCompanyDetailsModal({
           <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-2.5">
             <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Localização &amp; CNAE
+              Localização &amp; CNAE (Receita + IBGE)
             </h4>
             <div className="space-y-1.5 text-slate-600 dark:text-slate-300">
               <div>
                 <span className="text-slate-400 text-[11px] block">Endereço:</span>
                 <span className="font-medium text-slate-900 dark:text-white">
                   {formatProvenanceText(company.enderecoCompleto)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Município / Código IBGE:</span>
+                <span className="font-mono text-slate-900 dark:text-white">
+                  {formatProvenanceText(company.municipio)} - {formatProvenanceText(company.uf)} (IBGE:{' '}
+                  {formatProvenanceText(company.codigoIbgeMunicipio)})
                 </span>
               </div>
               <div>
@@ -166,9 +215,9 @@ export default function RecentCompanyDetailsModal({
           <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-2.5">
             <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              QSA / Titular &amp; Cadastro de Contato
+              QSA / Titular &amp; Contatos do Cadastro
             </h4>
-            <div className="space-y-1.5 text-slate-600 dark:text-slate-300">
+            <div className="space-y-2 text-slate-600 dark:text-slate-300">
               <div>
                 <span className="text-slate-400 text-[11px] block">Titular / Sócio Principal:</span>
                 <span className="font-bold text-slate-900 dark:text-white text-sm">
@@ -179,12 +228,32 @@ export default function RecentCompanyDetailsModal({
                     company.titularOuSocioPrincipal.fonte}
                 </span>
               </div>
+
+              {company.qsa.valor && company.qsa.valor.length > 1 && (
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Demais Sócios (QSA):</span>
+                  <ul className="text-[11px] space-y-0.5">
+                    {company.qsa.valor.slice(1).map((s, i) => (
+                      <li key={i}>
+                        {s.nome} ({s.qualificacao})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 pt-1">
                 <Phone className="w-3.5 h-3.5 text-slate-500" />
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {formatProvenanceText(company.contato.telefoneFormatado)}
                 </span>
-                <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06]">
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    isPossibleAccounting
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500'
+                  }`}
+                >
                   {formatProvenanceText(company.contato.tipoContato)}
                 </span>
               </div>
@@ -194,6 +263,12 @@ export default function RecentCompanyDetailsModal({
                   {formatProvenanceText(company.contato.email)}
                 </span>
               </div>
+              {isPossibleAccounting && (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{formatProvenanceText(company.contato.motivoTipoContato)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

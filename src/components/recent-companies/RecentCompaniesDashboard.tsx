@@ -16,11 +16,13 @@ import {
   Flame,
   Loader2,
   ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   RecentCompanyLead,
   CompanySector,
   RecentCompaniesStats,
+  TipoContato,
 } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
 import WhatsAppPitchModal from './WhatsAppPitchModal';
@@ -40,11 +42,12 @@ export default function RecentCompaniesDashboard({
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [selectedSector, setSelectedSector] = useState<CompanySector>('todos');
   const [selectedRegion, setSelectedRegion] = useState<string>('todos');
+  const [selectedContactType, setSelectedContactType] = useState<TipoContato | 'todos'>('todos');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'mais_recentes' | 'maior_capital' | 'razao_social'>('mais_recentes');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(30);
+  const [pageSize] = useState(30);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -58,12 +61,14 @@ export default function RecentCompaniesDashboard({
     const total = companiesList.length;
     const c7 = companiesList.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 7).length;
     const c30 = companiesList.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 30).length;
-    const c90 = companiesList.filter((c) => c.diasCriacao.valor !== null && c.diasCriacao.valor <= 90).length;
+    const possiveisContabilidades = companiesList.filter(
+      (c) => c.contato.tipoContato.valor === 'possivel_contabilidade'
+    ).length;
     return {
       total,
       criadasUltimos7Dias: c7,
       criadasUltimos30Dias: c30,
-      criadasUltimos90Dias: c90,
+      possiveisContabilidades,
     };
   }, [companiesList]);
 
@@ -91,19 +96,44 @@ export default function RecentCompaniesDashboard({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedDays, selectedSector, selectedRegion, search, sortBy]);
+  }, [selectedDays, selectedSector, selectedRegion, selectedContactType, search, sortBy]);
+
+  const refreshFromServer = async () => {
+    try {
+      const res = await fetch('/api/recent-companies');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setCompaniesList(data.data);
+      }
+    } catch {
+      // mantém lista atual em memória caso falhe
+    }
+  };
 
   const handleAddLead = (newLead: RecentCompanyLead) => {
     setCompaniesList((prev) => {
-      if (prev.some((c) => c.id === newLead.id)) {
-        return prev;
-      }
-      return [newLead, ...prev];
+      const filtered = prev.filter((c) => c.id !== newLead.id);
+      return [newLead, ...filtered];
     });
-    setExportFeedback(
-      `Empresa ${formatProvenanceText(newLead.nomeFantasia)} salva no radar.`
-    );
+    setExportFeedback(`Empresa ${formatProvenanceText(newLead.nomeFantasia)} salva no radar.`);
     setTimeout(() => setExportFeedback(null), 5000);
+    void refreshFromServer();
+  };
+
+  const handleBatchImported = (leads: RecentCompanyLead[]) => {
+    setExportFeedback(`${leads.length} empresa(s) importada(s) e classificada(s).`);
+    setTimeout(() => setExportFeedback(null), 6000);
+    void refreshFromServer();
+  };
+
+  const handleCompanyUpdated = (updated: RecentCompanyLead) => {
+    setCompaniesList((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    if (activeDetailsLead?.id === updated.id) {
+      setActiveDetailsLead(updated);
+    }
+    if (activeWhatsAppLead?.id === updated.id) {
+      setActiveWhatsAppLead(updated);
+    }
   };
 
   const filteredCompanies = useMemo(() => {
@@ -116,6 +146,10 @@ export default function RecentCompaniesDashboard({
         }
         if (selectedSector !== 'todos' && c.setor.valor !== selectedSector) {
           return false;
+        }
+        if (selectedContactType !== 'todos') {
+          const val = c.contato.tipoContato.valor || 'desconhecido';
+          if (val !== selectedContactType) return false;
         }
         if (selectedRegion !== 'todos') {
           const regionStr = `${formatProvenanceText(c.bairroRegiao, '')} ${formatProvenanceText(c.municipio, '')}`.toLowerCase();
@@ -139,7 +173,10 @@ export default function RecentCompaniesDashboard({
       })
       .sort((a, b) => {
         if (sortBy === 'mais_recentes') {
-          return (a.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER) - (b.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER);
+          return (
+            (a.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER) -
+            (b.diasCriacao.valor ?? Number.MAX_SAFE_INTEGER)
+          );
         }
         if (sortBy === 'maior_capital') {
           return (b.capitalSocial.valor ?? -1) - (a.capitalSocial.valor ?? -1);
@@ -148,7 +185,7 @@ export default function RecentCompaniesDashboard({
           formatProvenanceText(b.razaoSocial, '')
         );
       });
-  }, [companiesList, selectedDays, selectedSector, selectedRegion, search, sortBy]);
+  }, [companiesList, selectedDays, selectedSector, selectedRegion, selectedContactType, search, sortBy]);
 
   const totalPages = Math.ceil(filteredCompanies.length / pageSize) || 1;
   const paginatedCompanies = useMemo(() => {
@@ -200,14 +237,14 @@ export default function RecentCompaniesDashboard({
               <ShieldCheck className="w-3 h-3" /> Radar de Empresas com Proveniência
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-blue-500" /> BrasilAPI / MinhaReceita
+              <MapPin className="w-3.5 h-3.5 text-blue-500" /> BrasilAPI / MinhaReceita + IBGE
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Empresas Consultadas em Fontes Públicas
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-            Exibe apenas CNPJs consultados em APIs oficiais. Sem dados sintéticos nem percentuais heurísticos.
+            Exibe apenas CNPJs consultados em APIs oficiais. Uso de sistema é &quot;Não verificado&quot; até confirmação comercial.
           </p>
         </div>
 
@@ -217,7 +254,7 @@ export default function RecentCompaniesDashboard({
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition cursor-pointer shadow-xs"
           >
             <Search className="w-4 h-4" />
-            <span>Consultar CNPJ via API Aberta</span>
+            <span>Consultar / Importar CNPJs</span>
           </button>
 
           <button
@@ -266,9 +303,9 @@ export default function RecentCompaniesDashboard({
           </div>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-1">
-          <div className="text-slate-500 dark:text-slate-400 text-xs font-medium">≤ 90 Dias</div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-            {dynamicStats.criadasUltimos90Dias}
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-medium">Possível Contabilidade</div>
+          <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+            {dynamicStats.possiveisContabilidades}
           </div>
         </div>
       </div>
@@ -323,7 +360,18 @@ export default function RecentCompaniesDashboard({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedContactType}
+              onChange={(e) => setSelectedContactType(e.target.value as TipoContato | 'todos')}
+              className="text-xs px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+            >
+              <option value="todos">Todos os Contatos</option>
+              <option value="provavel_empresa">Provável Empresa</option>
+              <option value="possivel_contabilidade">Possível Contabilidade</option>
+              <option value="desconhecido">Tipo Desconhecido</option>
+            </select>
+
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
@@ -353,6 +401,7 @@ export default function RecentCompaniesDashboard({
         {paginatedCompanies.map((company) => {
           const isSelected = selectedIds.includes(company.id);
           const dias = company.diasCriacao.valor;
+          const isAccounting = company.contato.tipoContato.valor === 'possivel_contabilidade';
 
           return (
             <div
@@ -379,7 +428,10 @@ export default function RecentCompaniesDashboard({
                   </div>
 
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-                    Sistema: {company.diagnostico.possuiSistema.status === 'desconhecido' ? 'Não verificado' : formatProvenanceText(company.diagnostico.possuiSistema)}
+                    Sistema:{' '}
+                    {company.diagnostico.possuiSistema.status === 'desconhecido'
+                      ? 'Não verificado'
+                      : formatProvenanceText(company.diagnostico.possuiSistema)}
                   </span>
                 </div>
 
@@ -415,6 +467,7 @@ export default function RecentCompaniesDashboard({
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-[11px] font-mono text-slate-700 dark:text-slate-300 shrink-0">
+                    {isAccounting && <AlertTriangle className="w-3 h-3 text-amber-500" />}
                     <Phone className="w-3 h-3" />
                     <span>{formatProvenanceText(company.contato.telefoneFormatado)}</span>
                   </div>
@@ -451,7 +504,7 @@ export default function RecentCompaniesDashboard({
             Nenhuma empresa real cadastrada ainda
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            A base sintética foi removida. Use &quot;Consultar CNPJ via API Aberta&quot; para adicionar empresas reais da Receita Federal.
+            Use &quot;Consultar / Importar CNPJs&quot; para consultar CNPJs reais via BrasilAPI / MinhaReceita e IBGE.
           </p>
         </div>
       )}
@@ -482,6 +535,7 @@ export default function RecentCompaniesDashboard({
         isOpen={isLookupModalOpen}
         onClose={() => setIsLookupModalOpen(false)}
         onAddLead={handleAddLead}
+        onBatchImported={handleBatchImported}
         onOpenWhatsApp={(lead) => {
           setIsLookupModalOpen(false);
           setActiveWhatsAppLead(lead);
@@ -497,6 +551,7 @@ export default function RecentCompaniesDashboard({
       <RecentCompanyDetailsModal
         company={activeDetailsLead}
         onClose={() => setActiveDetailsLead(null)}
+        onCompanyUpdated={handleCompanyUpdated}
         onOpenWhatsApp={(company) => {
           setActiveDetailsLead(null);
           setActiveWhatsAppLead(company);

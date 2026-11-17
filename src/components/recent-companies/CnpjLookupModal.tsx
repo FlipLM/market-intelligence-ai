@@ -11,6 +11,7 @@ import {
   X,
   Sparkles,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import { RecentCompanyLead } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
@@ -19,6 +20,7 @@ interface CnpjLookupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddLead: (lead: RecentCompanyLead) => void;
+  onBatchImported: (leads: RecentCompanyLead[]) => void;
   onOpenWhatsApp: (lead: RecentCompanyLead) => void;
 }
 
@@ -26,12 +28,19 @@ export default function CnpjLookupModal({
   isOpen,
   onClose,
   onAddLead,
+  onBatchImported,
   onOpenWhatsApp,
 }: CnpjLookupModalProps) {
+  const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [cnpjInput, setCnpjInput] = useState('');
+  const [batchInput, setBatchInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadResult, setLeadResult] = useState<RecentCompanyLead | null>(null);
+  const [batchSummary, setBatchSummary] = useState<{
+    importedCount: number;
+    failed: Array<{ cnpj: string; reason: string }>;
+  } | null>(null);
   const [added, setAdded] = useState(false);
 
   if (!isOpen) return null;
@@ -58,8 +67,45 @@ export default function CnpjLookupModal({
       }
 
       setLeadResult(data.data);
+      onAddLead(data.data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro de conexão com a API de CNPJ Aberto.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBatchSummary(null);
+
+    if (!batchInput.trim()) {
+      setError('Cole ao menos um CNPJ (separado por linha, vírgula ou ponto e vírgula).');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch('/api/recent-companies/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: batchInput }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao importar lista de CNPJs.');
+      }
+
+      setBatchSummary({
+        importedCount: data.importedCount,
+        failed: data.failed || [],
+      });
+      if (Array.isArray(data.data) && data.data.length > 0) {
+        onBatchImported(data.data);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao importar lote de CNPJs.');
     } finally {
       setLoading(false);
     }
@@ -71,7 +117,7 @@ export default function CnpjLookupModal({
       setAdded(true);
       setTimeout(() => {
         onClose();
-      }, 600);
+      }, 400);
     }
   };
 
@@ -85,11 +131,11 @@ export default function CnpjLookupModal({
                 <Search className="w-4 h-4" />
               </span>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Consulta em Tempo Real via API de CNPJ Aberto
+                Consultar ou Importar CNPJs Reais (BrasilAPI / MinhaReceita + IBGE)
               </h3>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Fonte oficial: BrasilAPI / MinhaReceita (cada campo preserva status e fonte).
+              Com cache, controle de rate limit e retry com backoff. Campos ausentes ficam como &quot;Não verificado&quot;.
             </p>
           </div>
 
@@ -101,33 +147,90 @@ export default function CnpjLookupModal({
           </button>
         </div>
 
-        <form onSubmit={handleLookup} className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Digite o CNPJ da Empresa:
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Ex: 00.000.000/0001-91 ou apenas números"
-                  value={cnpjInput}
-                  onChange={(e) => setCnpjInput(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('single');
+              setError(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
+              mode === 'single'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            Consulta Unitária
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('batch');
+              setError(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 ${
+              mode === 'batch'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Importar Lista de CNPJs (até 50)
+          </button>
+        </div>
+
+        {mode === 'single' ? (
+          <form onSubmit={handleLookup} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Digite o CNPJ da Empresa:
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Ex: 00.000.000/0001-91 ou apenas números"
+                    value={cnpjInput}
+                    onChange={(e) => setCnpjInput(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || cnpjInput.trim() === ''}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  <span>{loading ? 'Consultando...' : 'Consultar API'}</span>
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={loading || cnpjInput.trim() === ''}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm cursor-pointer disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                <span>{loading ? 'Consultando...' : 'Consultar API'}</span>
-              </button>
             </div>
-          </div>
-        </form>
+          </form>
+        ) : (
+          <form onSubmit={handleBatchImport} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Cole até 50 CNPJs reais (um por linha, ou separados por vírgula/ponto e vírgula):
+              </label>
+              <textarea
+                rows={5}
+                value={batchInput}
+                onChange={(e) => setBatchInput(e.target.value)}
+                placeholder={'00.000.000/0001-91\n33.000.167/0001-01'}
+                className="w-full p-3 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || batchInput.trim() === ''}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition cursor-pointer disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              <span>{loading ? 'Consultando APIs...' : 'Importar e Verificar CNPJs'}</span>
+            </button>
+          </form>
+        )}
 
         {error && (
           <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
@@ -136,14 +239,33 @@ export default function CnpjLookupModal({
           </div>
         )}
 
-        {leadResult && (
+        {batchSummary && (
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-xs space-y-2">
+            <div className="font-semibold text-slate-900 dark:text-white">
+              Importação concluída: {batchSummary.importedCount} CNPJ(s) salvo(s),{' '}
+              {batchSummary.failed.length} falha(s).
+            </div>
+            {batchSummary.failed.length > 0 && (
+              <ul className="space-y-1 text-[11px] text-rose-600 dark:text-rose-400">
+                {batchSummary.failed.map((f, i) => (
+                  <li key={i} className="font-mono">
+                    {f.cnpj}: {f.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {mode === 'single' && leadResult && (
           <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/[0.06] text-xs">
               <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
                 <ShieldCheck className="w-4 h-4" /> {leadResult.cnpj.fonte}
               </span>
               <span className="font-mono text-slate-500 text-[11px]">
-                Abertura: {formatProvenanceText(leadResult.dataAbertura)} ({formatProvenanceText(leadResult.rotuloEstagio)})
+                Abertura: {formatProvenanceText(leadResult.dataAbertura)} (
+                {formatProvenanceText(leadResult.rotuloEstagio)})
               </span>
             </div>
 
@@ -188,9 +310,12 @@ export default function CnpjLookupModal({
                 </strong>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] block">Telefone no Cadastro:</span>
+                <span className="text-slate-400 text-[10px] block">Contato no Cadastro:</span>
                 <span className="font-mono text-slate-900 dark:text-white font-semibold">
                   {formatProvenanceText(leadResult.contato.telefoneFormatado)}
+                </span>{' '}
+                <span className="text-[10px] text-slate-500">
+                  ({formatProvenanceText(leadResult.contato.tipoContato)})
                 </span>
               </div>
             </div>
@@ -209,7 +334,7 @@ export default function CnpjLookupModal({
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer"
               >
                 {added ? <Check className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                <span>{added ? 'Salvo no Radar!' : 'Manter no Radar'}</span>
+                <span>{added ? 'Salvo no Radar!' : 'Concluir'}</span>
               </button>
             </div>
           </div>

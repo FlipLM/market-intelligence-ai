@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchCnpjFromOpenApi } from '@/lib/connectors/openCnpjApi';
-import { upsertRecentCompany } from '@/lib/data/recentCompaniesData';
+import { getRealRecentCompanies, upsertRecentCompany } from '@/lib/data/recentCompaniesData';
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +11,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Parâmetro cnpj obrigatório.' }, { status: 400 });
     }
 
-    const lead = await fetchCnpjFromOpenApi(cnpj);
+    const existing = getRealRecentCompanies();
+    const lead = await fetchCnpjFromOpenApi(cnpj, existing);
 
     if (!lead) {
       return NextResponse.json(
@@ -23,12 +24,12 @@ export async function GET(request: Request) {
       );
     }
 
-    upsertRecentCompany(lead);
+    const saved = upsertRecentCompany(lead);
 
     return NextResponse.json({
       success: true,
-      source: lead.cnpj.fonte,
-      data: lead,
+      source: saved.cnpj.fonte,
+      data: saved,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -45,7 +46,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Campo cnpj obrigatório.' }, { status: 400 });
     }
 
-    const lead = await fetchCnpjFromOpenApi(cnpj);
+    const existing = getRealRecentCompanies();
+    const lead = await fetchCnpjFromOpenApi(cnpj, existing);
 
     if (!lead) {
       return NextResponse.json(
@@ -57,12 +59,12 @@ export async function POST(request: Request) {
       );
     }
 
-    upsertRecentCompany(lead);
+    const saved = upsertRecentCompany(lead);
 
     return NextResponse.json({
       success: true,
-      source: lead.cnpj.fonte,
-      data: lead,
+      source: saved.cnpj.fonte,
+      data: saved,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -69,6 +69,7 @@ export interface RecentCompanyLead {
   cnaesSecundarios: ProvenanceField<CnaeSecondaryItem[]>;
   uf: ProvenanceField<string>;
   municipio: ProvenanceField<string>;
+  codigoIbgeMunicipio?: ProvenanceField<number>;
   bairroRegiao: ProvenanceField<string>;
   logradouro: ProvenanceField<string>;
   numero: ProvenanceField<string>;
