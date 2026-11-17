@@ -1,4 +1,4 @@
-import { DemandAnalysis } from '@/types/market';
+import type { DemandAnalysis } from '@/types/market';
 import { desconhecido } from '@/types/provenance';
 
 export function analyzeSearchTrends(): DemandAnalysis {

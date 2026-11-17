@@ -1,4 +1,4 @@
-import { TechAuditAnalysis } from '@/types/market';
+import type { TechAuditAnalysis } from '@/types/market';
 import { desconhecido } from '@/types/provenance';
 
 export function runTechAuditorAgent(): TechAuditAnalysis {

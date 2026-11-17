@@ -1,4 +1,4 @@
-import { PaidTrafficAnalysis } from '@/types/market';
+import type { PaidTrafficAnalysis } from '@/types/market';
 import { desconhecido } from '@/types/provenance';
 
 export function analyzePaidTraffic(): PaidTrafficAnalysis {

@@ -1,10 +1,10 @@
-import {
+import type {
   NicheBasicInfo,
   CommercialViability,
   NicheScoreBreakdown,
   NicheReport,
 } from '@/types/market';
-import { ProvenanceField, inferido, desconhecido } from '@/types/provenance';
+import { type ProvenanceField, inferido, desconhecido } from '@/types/provenance';
 
 export function runDecisionAnalystAgent(params: {
   basicInfo: NicheBasicInfo;

@@ -1,5 +1,5 @@
-import { NicheReport, ProspectorHandoff } from '@/types/market';
-import { RecentCompanyLead } from '@/types/recentCompanies';
+import type { NicheReport, ProspectorHandoff } from '@/types/market';
+import type { RecentCompanyLead } from '@/types/recentCompanies';
 import { formatProvenanceText, inferido } from '@/types/provenance';
 import fs from 'fs';
 import path from 'path';

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { RecentCompanyLead } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
+import { FieldProvenanceBadge } from '@/components/ProvenanceBadge';
 
 interface CnpjLookupModalProps {
   isOpen: boolean;
@@ -289,20 +290,29 @@ export default function CnpjLookupModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-200/60 dark:border-white/[0.04]">
               <div>
-                <span className="text-slate-400 text-[10px] block">CNAE Principal:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[10px]">CNAE Principal:</span>
+                  <FieldProvenanceBadge field={leadResult.cnaePrincipal} />
+                </div>
                 <strong className="text-slate-900 dark:text-white font-mono">
                   {formatProvenanceText(leadResult.cnaePrincipal)}
                 </strong>{' '}
                 - {formatProvenanceText(leadResult.cnaeDescricao)}
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] block">Localização:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[10px]">Localização:</span>
+                  <FieldProvenanceBadge field={leadResult.enderecoCompleto} />
+                </div>
                 <span className="text-slate-700 dark:text-slate-300">
                   {formatProvenanceText(leadResult.enderecoCompleto)}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] block">Titular / Sócio:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[10px]">Titular / Sócio:</span>
+                  <FieldProvenanceBadge field={leadResult.titularOuSocioPrincipal} />
+                </div>
                 <strong className="text-slate-900 dark:text-white">
                   {leadResult.titularOuSocioPrincipal.valor
                     ? `${leadResult.titularOuSocioPrincipal.valor.nome} (${leadResult.titularOuSocioPrincipal.valor.qualificacao})`
@@ -310,7 +320,10 @@ export default function CnpjLookupModal({
                 </strong>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] block">Contato no Cadastro:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[10px]">Contato no Cadastro:</span>
+                  <FieldProvenanceBadge field={leadResult.contato.telefone1} />
+                </div>
                 <span className="font-mono text-slate-900 dark:text-white font-semibold">
                   {formatProvenanceText(leadResult.contato.telefoneFormatado)}
                 </span>{' '}

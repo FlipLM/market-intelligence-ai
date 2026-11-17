@@ -1,4 +1,4 @@
-import { CompetitiveAnalysis } from '@/types/market';
+import type { CompetitiveAnalysis } from '@/types/market';
 import { desconhecido } from '@/types/provenance';
 
 export function analyzeCompetitors(): CompetitiveAnalysis {

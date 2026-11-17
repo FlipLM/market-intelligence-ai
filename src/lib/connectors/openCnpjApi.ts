@@ -1,4 +1,4 @@
-import {
+import type {
   RecentCompanyLead,
   CompanySector,
   CompanyTimeWindow,
@@ -6,7 +6,7 @@ import {
   QsaPartner,
   PrincipalHolder,
 } from '@/types/recentCompanies';
-import { verificado, inferido, desconhecido, ProvenanceField } from '@/types/provenance';
+import { verificado, inferido, desconhecido, type ProvenanceField } from '@/types/provenance';
 import { fetchJsonWithRetryAndCache } from './httpClient';
 import { fetchIbgeCnaeDescription, fetchIbgeMunicipioInfo } from './ibge';
 import { classifyContactOrigin } from './contactClassifier';

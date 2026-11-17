@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { NicheReport } from '@/types/market';
+import type { NicheReport } from '@/types/market';
 import { formatProvenanceText } from '@/types/provenance';
 
 export function generateNichePdf(niche: NicheReport): void {

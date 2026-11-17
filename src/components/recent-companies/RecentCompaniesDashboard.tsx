@@ -25,6 +25,7 @@ import {
   TipoContato,
 } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
+import { FieldProvenanceBadge } from '@/components/ProvenanceBadge';
 import WhatsAppPitchModal from './WhatsAppPitchModal';
 import RecentCompanyDetailsModal from './RecentCompanyDetailsModal';
 import CnpjLookupModal from './CnpjLookupModal';
@@ -427,14 +428,20 @@ export default function RecentCompaniesDashboard({
                     </span>
                   </div>
 
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-                    {company.abordagem.naoContatar
-                      ? 'Não Contatar'
-                      : `Sistema: ${
-                          company.diagnostico.possuiSistema.status === 'desconhecido'
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
+                    {company.abordagem.naoContatar ? (
+                      'Não Contatar'
+                    ) : (
+                      <>
+                        <span>
+                          Sistema:{' '}
+                          {company.diagnostico.possuiSistema.status === 'desconhecido'
                             ? 'Não verificado'
-                            : formatProvenanceText(company.diagnostico.possuiSistema)
-                        }`}
+                            : formatProvenanceText(company.diagnostico.possuiSistema)}
+                        </span>
+                        <FieldProvenanceBadge field={company.diagnostico.possuiSistema} />
+                      </>
+                    )}
                   </span>
                 </div>
 
@@ -462,17 +469,19 @@ export default function RecentCompaniesDashboard({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 dark:border-white/[0.04]">
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 dark:border-white/[0.04] gap-2">
                   <div className="flex items-center gap-1.5 truncate">
                     <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                       {company.titularOuSocioPrincipal.valor?.nome || 'Não verificado'}
                     </span>
+                    <FieldProvenanceBadge field={company.titularOuSocioPrincipal} />
                   </div>
                   <div className="flex items-center gap-1 text-[11px] font-mono text-slate-700 dark:text-slate-300 shrink-0">
                     {isAccounting && <AlertTriangle className="w-3 h-3 text-amber-500" />}
                     <Phone className="w-3 h-3" />
                     <span>{formatProvenanceText(company.contato.telefoneFormatado)}</span>
+                    <FieldProvenanceBadge field={company.contato.tipoContato} />
                   </div>
                 </div>
               </div>

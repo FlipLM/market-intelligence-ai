@@ -1,6 +1,6 @@
-import { NicheReport, NicheBaseAggregation } from '@/types/market';
+import type { NicheReport, NicheBaseAggregation } from '@/types/market';
 import { getScoringWeights, saveNiche } from '../db';
-import { runNicheDiscoveryAgent, DiscoveryInput } from './nicheDiscoveryAgent';
+import { runNicheDiscoveryAgent, type DiscoveryInput } from './nicheDiscoveryAgent';
 import { runDemandIntelligenceAgent } from './demandIntelligenceAgent';
 import { runPaidTrafficAgent } from './paidTrafficAgent';
 import { runCompetitiveIntelligenceAgent } from './competitiveIntelligenceAgent';

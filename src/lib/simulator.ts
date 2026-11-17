@@ -1,4 +1,4 @@
-import { FinancialScenario, HypotheticalAssumptions } from '@/types/market';
+import type { FinancialScenario, HypotheticalAssumptions } from '@/types/market';
 
 export const HYPOTHETICAL_DISCLAIMER =
   'CENÁRIO HIPOTÉTICO — Simulação matemática baseada em premissas editáveis pelo usuário. NÃO constitui previsão real de vendas ou faturamento.';

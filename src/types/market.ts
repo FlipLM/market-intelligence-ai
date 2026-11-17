@@ -1,4 +1,4 @@
-import { ProvenanceField, ProvenanceStatus } from './provenance';
+import type { ProvenanceField, ProvenanceStatus } from './provenance';
 
 /**
  * Market Intelligence AI - Contratos de Tipos e Interfaces com Proveniência

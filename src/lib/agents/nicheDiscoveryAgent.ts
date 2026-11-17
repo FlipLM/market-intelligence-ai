@@ -1,4 +1,4 @@
-import { NicheBasicInfo } from '@/types/market';
+import type { NicheBasicInfo } from '@/types/market';
 import { desconhecido, inferido, verificado } from '@/types/provenance';
 import { fetchIbgeCnaeDescription } from '../connectors/ibge';
 import { formatCnae } from '../connectors/openCnpjApi';

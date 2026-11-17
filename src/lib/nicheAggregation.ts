@@ -1,5 +1,5 @@
-import { NicheBaseAggregation } from '@/types/market';
-import { RecentCompanyLead } from '@/types/recentCompanies';
+import type { NicheBaseAggregation } from '@/types/market';
+import type { RecentCompanyLead } from '@/types/recentCompanies';
 import { getRealRecentCompanies } from '@/lib/data/recentCompaniesData';
 import { desconhecido, inferido } from '@/types/provenance';
 

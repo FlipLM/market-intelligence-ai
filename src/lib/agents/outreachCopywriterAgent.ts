@@ -1,4 +1,4 @@
-import { OutreachCopyBriefing } from '@/types/market';
+import type { OutreachCopyBriefing } from '@/types/market';
 import { desconhecido } from '@/types/provenance';
 import { STANDARD_OUTREACH_TEMPLATE } from '../outreachMessage';
 

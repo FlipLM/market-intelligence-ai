@@ -1,4 +1,4 @@
-import { RecentCompanyLead } from '@/types/recentCompanies';
+import type { RecentCompanyLead } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
 
 export const STANDARD_OUTREACH_TEMPLATE =

@@ -1,6 +1,7 @@
 'use client';
 
 import { ScoreItem } from '@/types/market';
+import { ProvenanceBadge } from '@/components/ProvenanceBadge';
 
 interface ScoreBreakdownViewProps {
   items: ScoreItem[];
@@ -15,7 +16,16 @@ export default function ScoreBreakdownView({ items }: ScoreBreakdownViewProps) {
           className="bg-slate-50 dark:bg-[#19191b] border border-slate-200 dark:border-white/[0.06] rounded-md p-3 space-y-1.5"
         >
           <div className="flex items-center justify-between text-xs gap-2">
-            <span className="font-medium text-slate-900 dark:text-[#ededed]">{item.name}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-medium text-slate-900 dark:text-[#ededed] truncate">
+                {item.name}
+              </span>
+              <ProvenanceBadge
+                status={item.status}
+                fonte={item.fonte}
+                consultado_em={item.consultado_em}
+              />
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[10px] text-slate-500 font-mono">
                 {(item.weight * 100).toFixed(0)}%

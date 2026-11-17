@@ -9,6 +9,7 @@ import OutreachCopySection from '@/components/OutreachCopySection';
 import HypotheticalSimulator from '@/components/HypotheticalSimulator';
 import NicheEvidencePanel from '@/components/NicheEvidencePanel';
 import { formatProvenanceText } from '@/types/provenance';
+import { FieldProvenanceBadge } from '@/components/ProvenanceBadge';
 import {
   ChevronLeft,
   ExternalLink,
@@ -82,15 +83,18 @@ export default async function NicheDetailPage({ params }: Props) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                 {formatProvenanceText(basicInfo.segment)}
+                <FieldProvenanceBadge field={basicInfo.segment} />
               </span>
-              <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]">
-                CNAE {cnaesDisplay} ({basicInfo.cnaes.status})
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]">
+                CNAE {cnaesDisplay}
+                <FieldProvenanceBadge field={basicInfo.cnaes} />
               </span>
-              <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <MapPin className="w-3 h-3" />
                 {formatProvenanceText(basicInfo.geographicScope.state, 'Brasil')}
+                <FieldProvenanceBadge field={basicInfo.geographicScope.state} />
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
@@ -136,9 +140,7 @@ export default async function NicheDetailPage({ params }: Props) {
               Contagem Real na Base Coletada (CNPJs por CNAE / Município / Período)
             </h3>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
-            {baseAggregation.totalEmpresasColetadas.status}
-          </span>
+          <FieldProvenanceBadge field={baseAggregation.totalEmpresasColetadas} />
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
@@ -318,27 +320,35 @@ export default async function NicheDetailPage({ params }: Props) {
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Demanda, Concorrência &amp; Faturamento
             </h3>
-            <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
-                <span>Demanda (0-100):</span>
+            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span className="inline-flex items-center gap-1.5">
+                  Demanda (0-100): <FieldProvenanceBadge field={demand.overallDemandScore} />
+                </span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {formatProvenanceText(demand.overallDemandScore, 'Não verificado: requer pesquisa manual')}
                 </span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
-                <span>Saturação Competitiva:</span>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span className="inline-flex items-center gap-1.5">
+                  Saturação: <FieldProvenanceBadge field={competition.marketSaturation} />
+                </span>
                 <span className="font-semibold text-slate-900 dark:text-white">
                   {formatProvenanceText(competition.marketSaturation, 'Não verificado: requer pesquisa manual')}
                 </span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
-                <span>Faturamento Médio:</span>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                <span className="inline-flex items-center gap-1.5">
+                  Faturamento: <FieldProvenanceBadge field={commercialViability.averageCompanyRevenue} />
+                </span>
                 <span className="font-semibold text-slate-900 dark:text-white">
                   {formatProvenanceText(commercialViability.averageCompanyRevenue, 'Não verificado: requer pesquisa manual')}
                 </span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span>CPC Médio:</span>
+              <div className="flex items-center justify-between gap-2 py-1.5">
+                <span className="inline-flex items-center gap-1.5">
+                  CPC Médio: <FieldProvenanceBadge field={paidTraffic.averageCpc} />
+                </span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {paidTraffic.averageCpc.valor !== null
                     ? `R$ ${paidTraffic.averageCpc.valor.toFixed(2)}`

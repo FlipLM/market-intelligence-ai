@@ -1,5 +1,5 @@
-import { DataEvidence } from '@/types/market';
-import { ProvenanceField, desconhecido, verificado } from '@/types/provenance';
+import type { DataEvidence } from '@/types/market';
+import { type ProvenanceField, desconhecido, verificado } from '@/types/provenance';
 import { fetchJsonWithRetryAndCache } from './httpClient';
 
 export interface IbgeCnaeSubclasseResponse {

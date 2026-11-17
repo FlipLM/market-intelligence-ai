@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { RecentCompanyLead } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
+import { FieldProvenanceBadge } from '@/components/ProvenanceBadge';
 import {
   buildStandardWhatsAppMessage,
   evaluateFollowupEligibility,
@@ -157,27 +158,30 @@ export default function WhatsAppPitchModal({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-200/60 dark:border-white/[0.04] text-xs">
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
-              Titular / Sócio ({company.titularOuSocioPrincipal.status}):
-            </span>
-            <strong className="text-slate-900 dark:text-white">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Titular / Sócio:</span>
+              <FieldProvenanceBadge field={company.titularOuSocioPrincipal} />
+            </div>
+            <strong className="text-slate-900 dark:text-white block">
               {company.titularOuSocioPrincipal.valor?.nome || 'Não verificado'}
             </strong>
           </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
-              Telefone no Cadastro:
-            </span>
-            <strong className="text-slate-900 dark:text-white font-mono">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Telefone:</span>
+              <FieldProvenanceBadge field={company.contato.tipoContato} />
+            </div>
+            <strong className="text-slate-900 dark:text-white font-mono block">
               {formatProvenanceText(company.contato.telefoneFormatado)}
             </strong>
           </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
-              Origem Declarada:
-            </span>
-            <span className="text-slate-700 dark:text-slate-300">{vars.origem}</span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Origem:</span>
+              <FieldProvenanceBadge field={company.cnpj} />
+            </div>
+            <span className="text-slate-700 dark:text-slate-300 block">{vars.origem}</span>
           </div>
         </div>
 

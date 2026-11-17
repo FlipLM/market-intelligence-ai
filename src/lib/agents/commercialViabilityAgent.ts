@@ -1,4 +1,4 @@
-import { CommercialViability, DataEvidence } from '@/types/market';
+import type { CommercialViability, DataEvidence } from '@/types/market';
 import { desconhecido, inferido } from '@/types/provenance';
 
 export function runCommercialViabilityAgent(params?: {

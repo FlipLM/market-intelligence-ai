@@ -1,5 +1,5 @@
-import { RecentCompanyLead, TipoContato } from '@/types/recentCompanies';
-import { ProvenanceField, desconhecido, inferido } from '@/types/provenance';
+import type { RecentCompanyLead, TipoContato } from '@/types/recentCompanies';
+import { type ProvenanceField, desconhecido, inferido } from '@/types/provenance';
 
 const FREE_WEBMAIL_DOMAINS = new Set([
   'gmail.com',

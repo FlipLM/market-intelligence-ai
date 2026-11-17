@@ -1,4 +1,4 @@
-import { ProvenanceField } from './provenance';
+import type { ProvenanceField } from './provenance';
 
 /**
  * Tipos e Contratos com Proveniência para o Radar de Empresas Recém-Abertas

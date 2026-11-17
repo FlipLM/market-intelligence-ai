@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { RecentCompanyLead, PossuiSistemaStatus } from '@/types/recentCompanies';
 import { formatProvenanceText } from '@/types/provenance';
+import { FieldProvenanceBadge } from '@/components/ProvenanceBadge';
 
 interface RecentCompanyDetailsModalProps {
   company: RecentCompanyLead | null;
@@ -76,24 +77,33 @@ export default function RecentCompanyDetailsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto glass-panel bg-white dark:bg-[#12141c] border border-slate-200 dark:border-white/[0.1] rounded-2xl shadow-2xl p-6 space-y-5">
         <div className="flex items-start justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.08]">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                 {formatProvenanceText(company.setorRotulo)}
+                <FieldProvenanceBadge field={company.setorRotulo} />
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
                 CNPJ {formatProvenanceText(company.cnpj)}
+                <FieldProvenanceBadge field={company.cnpj} />
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 {formatProvenanceText(company.rotuloEstagio)} ({formatProvenanceText(company.dataAbertura)})
+                <FieldProvenanceBadge field={company.dataAbertura} />
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-              {formatProvenanceText(company.nomeFantasia)}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {formatProvenanceText(company.razaoSocial)}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                {formatProvenanceText(company.nomeFantasia)}
+              </h2>
+              <FieldProvenanceBadge field={company.nomeFantasia} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {formatProvenanceText(company.razaoSocial)}
+              </p>
+              <FieldProvenanceBadge field={company.razaoSocial} />
+            </div>
           </div>
 
           <button
@@ -104,7 +114,6 @@ export default function RecentCompanyDetailsModal({
           </button>
         </div>
 
-        {/* Confirmação manual de possui_sistema (substitui probabilidades inventadas) */}
         <div className="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.08] space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -112,9 +121,12 @@ export default function RecentCompanyDetailsModal({
                 <Cpu className="w-4 h-4" />
               </span>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Possui Sistema Instalado?
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Possui Sistema Instalado?
+                  </h3>
+                  <FieldProvenanceBadge field={company.diagnostico.possuiSistema} />
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {company.diagnostico.possuiSistema.fonte}
                 </p>
@@ -145,29 +157,41 @@ export default function RecentCompanyDetailsModal({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-              <span className="text-[10px] text-slate-400 block">Situação Cadastral:</span>
-              <strong className="text-slate-900 dark:text-white">
+            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04] space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-slate-400">Situação Cadastral:</span>
+                <FieldProvenanceBadge field={company.situacaoCadastral} />
+              </div>
+              <strong className="text-slate-900 dark:text-white block">
                 {formatProvenanceText(company.situacaoCadastral)}
               </strong>
             </div>
-            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-              <span className="text-[10px] text-slate-400 block">Natureza Jurídica:</span>
-              <strong className="text-slate-900 dark:text-white">
+            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04] space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-slate-400">Natureza Jurídica:</span>
+                <FieldProvenanceBadge field={company.naturezaJuridica} />
+              </div>
+              <strong className="text-slate-900 dark:text-white block">
                 {formatProvenanceText(company.naturezaJuridica)}
               </strong>
             </div>
-            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-              <span className="text-[10px] text-slate-400 block">Capital Social:</span>
-              <strong className="text-slate-900 dark:text-white font-mono">
+            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04] space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-slate-400">Capital Social:</span>
+                <FieldProvenanceBadge field={company.capitalSocial} />
+              </div>
+              <strong className="text-slate-900 dark:text-white font-mono block">
                 {company.capitalSocial.valor !== null
                   ? `R$ ${company.capitalSocial.valor.toLocaleString('pt-BR')}`
                   : 'Não verificado'}
               </strong>
             </div>
-            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04]">
-              <span className="text-[10px] text-slate-400 block">Porte:</span>
-              <strong className="text-slate-900 dark:text-white">
+            <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200/60 dark:border-white/[0.04] space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-slate-400">Porte:</span>
+                <FieldProvenanceBadge field={company.porte} />
+              </div>
+              <strong className="text-slate-900 dark:text-white block">
                 {formatProvenanceText(company.porte)}
               </strong>
             </div>
@@ -180,22 +204,31 @@ export default function RecentCompanyDetailsModal({
               <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Localização &amp; CNAE (Receita + IBGE)
             </h4>
-            <div className="space-y-1.5 text-slate-600 dark:text-slate-300">
+            <div className="space-y-2 text-slate-600 dark:text-slate-300">
               <div>
-                <span className="text-slate-400 text-[11px] block">Endereço:</span>
-                <span className="font-medium text-slate-900 dark:text-white">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">Endereço:</span>
+                  <FieldProvenanceBadge field={company.enderecoCompleto} />
+                </div>
+                <span className="font-medium text-slate-900 dark:text-white block mt-0.5">
                   {formatProvenanceText(company.enderecoCompleto)}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 text-[11px] block">Município / Código IBGE:</span>
-                <span className="font-mono text-slate-900 dark:text-white">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">Município / Código IBGE:</span>
+                  <FieldProvenanceBadge field={company.codigoIbgeMunicipio} />
+                </div>
+                <span className="font-mono text-slate-900 dark:text-white block mt-0.5">
                   {formatProvenanceText(company.municipio)} - {formatProvenanceText(company.uf)} (IBGE:{' '}
                   {formatProvenanceText(company.codigoIbgeMunicipio)})
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 text-[11px] block">CNAE Principal:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">CNAE Principal:</span>
+                  <FieldProvenanceBadge field={company.cnaeDescricao} />
+                </div>
                 <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">
                   {formatProvenanceText(company.cnaePrincipal)}
                 </span>{' '}
@@ -203,7 +236,10 @@ export default function RecentCompanyDetailsModal({
               </div>
               {company.cnaesSecundarios.valor && company.cnaesSecundarios.valor.length > 0 && (
                 <div>
-                  <span className="text-slate-400 text-[11px] block">CNAEs Secundários:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-[11px]">CNAEs Secundários:</span>
+                    <FieldProvenanceBadge field={company.cnaesSecundarios} />
+                  </div>
                   <span className="font-mono text-slate-500">
                     {company.cnaesSecundarios.valor.map((c) => c.codigo).join(', ')}
                   </span>
@@ -219,8 +255,11 @@ export default function RecentCompanyDetailsModal({
             </h4>
             <div className="space-y-2 text-slate-600 dark:text-slate-300">
               <div>
-                <span className="text-slate-400 text-[11px] block">Titular / Sócio Principal:</span>
-                <span className="font-bold text-slate-900 dark:text-white text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">Titular / Sócio Principal:</span>
+                  <FieldProvenanceBadge field={company.titularOuSocioPrincipal} />
+                </div>
+                <span className="font-bold text-slate-900 dark:text-white text-sm block mt-0.5">
                   {company.titularOuSocioPrincipal.valor?.nome || 'Não verificado'}
                 </span>
                 <span className="text-[10px] text-slate-500 block">
@@ -242,26 +281,29 @@ export default function RecentCompanyDetailsModal({
                 </div>
               )}
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Phone className="w-3.5 h-3.5 text-slate-500" />
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {formatProvenanceText(company.contato.telefoneFormatado)}
                 </span>
+                <FieldProvenanceBadge field={company.contato.telefone1} />
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${
                     isPossibleAccounting
                       ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                       : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500'
                   }`}
                 >
                   {formatProvenanceText(company.contato.tipoContato)}
+                  <FieldProvenanceBadge field={company.contato.tipoContato} />
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-slate-400" />
                 <span className="font-mono text-slate-700 dark:text-slate-300">
                   {formatProvenanceText(company.contato.email)}
                 </span>
+                <FieldProvenanceBadge field={company.contato.email} />
               </div>
               {isPossibleAccounting && (
                 <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-1.5">
